@@ -1,6 +1,7 @@
 <Activity mc:Ignorable="sap sap2010" x:Class="BeneficiaryPreCheck" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib" xmlns:ui="http://schemas.uipath.com/workflow/activities" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <x:Members>
     <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
+    <x:Property Name="in_ApiKey" Type="InArgument(x:String)" />
     <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
     <x:Property Name="in_HasLifeLine" Type="InArgument(x:Boolean)" />
     <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
@@ -50,23 +51,20 @@
       <AssemblyReference>System.Collections.NonGeneric</AssemblyReference>
     </sco:Collection>
   </TextExpression.ReferencesForImplementation>
-  <Sequence DisplayName="C-05 Beneficiary Pre-check" sap:VirtualizedContainerService.HintSize="828.2,1508" sap2010:WorkflowViewState.IdRef="Sequence_8">
+  <Sequence DisplayName="C-05 Beneficiary Pre-check" sap:VirtualizedContainerService.HintSize="828.2,888" sap2010:WorkflowViewState.IdRef="Sequence_4">
     <Sequence.Variables>
       <Variable x:TypeArguments="x:Int32" Name="status" />
       <Variable x:TypeArguments="x:String" Name="body" />
       <Variable x:TypeArguments="x:String" Name="errCode" />
-      <Variable x:TypeArguments="njl:JObject" Name="beneficiaries" />
-      <Variable x:TypeArguments="njl:JArray" Name="primary" />
-      <Variable x:TypeArguments="njl:JArray" Name="contingent" />
-      <Variable x:TypeArguments="x:Decimal" Name="pSum" />
-      <Variable x:TypeArguments="x:Decimal" Name="cSum" />
+      <Variable x:TypeArguments="njl:JArray" Name="beneficiaries" />
+      <Variable x:TypeArguments="x:Int32" Name="bCount" />
     </Sequence.Variables>
     <sap:WorkflowViewStateService.ViewState>
       <scg:Dictionary x:TypeArguments="x:String, x:Object">
         <x:Boolean x:Key="IsExpanded">True</x:Boolean>
       </scg:Dictionary>
     </sap:WorkflowViewStateService.ViewState>
-    <Assign DisplayName="Default IsValid = True" sap:VirtualizedContainerService.HintSize="540.8,48" sap2010:WorkflowViewState.IdRef="Assign_1">
+    <Assign DisplayName="Default IsValid = True" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="Assign_1">
       <Assign.To>
         <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
       </Assign.To>
@@ -79,9 +77,10 @@
         </scg:Dictionary>
       </sap:WorkflowViewStateService.ViewState>
     </Assign>
-    <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="GET /api/beneficiaries" sap:VirtualizedContainerService.HintSize="540.8,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_1" UnSafe="False" WorkflowFileName="Framework\HttpGet.xaml">
+    <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="GET /api/beneficiaries" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_1" UnSafe="False" WorkflowFileName="Framework\HttpGet.xaml">
       <ui:InvokeWorkflowFile.Arguments>
         <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_BaseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[in_ApiKey]</InArgument>
         <InArgument x:TypeArguments="x:String" x:Key="in_ResourcePath">/api/beneficiaries</InArgument>
         <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[in_EmployeeId]</InArgument>
         <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[status]</OutArgument>
@@ -94,27 +93,21 @@
         </scg:Dictionary>
       </sap:WorkflowViewStateService.ViewState>
     </ui:InvokeWorkflowFile>
-    <If Condition="[status = 200]" DisplayName="If 200" sap:VirtualizedContainerService.HintSize="540.8,1388" sap2010:WorkflowViewState.IdRef="If_3">
+    <If Condition="[status = 200]" DisplayName="If 200" sap:VirtualizedContainerService.HintSize="510.4,768" sap2010:WorkflowViewState.IdRef="If_2">
       <If.Then>
-        <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="540.8,1172" sap2010:WorkflowViewState.IdRef="Sequence_6">
+        <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="510.4,552" sap2010:WorkflowViewState.IdRef="Sequence_2">
           <sap:WorkflowViewStateService.ViewState>
             <scg:Dictionary x:TypeArguments="x:String, x:Object">
               <x:Boolean x:Key="IsExpanded">True</x:Boolean>
             </scg:Dictionary>
           </sap:WorkflowViewStateService.ViewState>
-          <ui:DeserializeJson x:TypeArguments="njl:JObject" JsonSample="{x:Null}" Settings="{x:Null}" DisplayName="Parse Beneficiaries" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="DeserializeJson`1_1" JsonObject="[beneficiaries]" JsonString="[body]">
-            <sap:WorkflowViewStateService.ViewState>
-              <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                <x:Boolean x:Key="IsExpanded">False</x:Boolean>
-              </scg:Dictionary>
-            </sap:WorkflowViewStateService.ViewState>
-          </ui:DeserializeJson>
-          <Assign DisplayName="Extract Primary" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="Assign_2">
+          <ui:DeserializeJsonArray DisplayName="Parse Beneficiaries" sap:VirtualizedContainerService.HintSize="480,48" sap2010:WorkflowViewState.IdRef="DeserializeJsonArray_1" JsonArray="[beneficiaries]" JsonString="[body]" />
+          <Assign DisplayName="Count beneficiaries" sap:VirtualizedContainerService.HintSize="480,48" sap2010:WorkflowViewState.IdRef="Assign_2">
             <Assign.To>
-              <OutArgument x:TypeArguments="njl:JArray">[primary]</OutArgument>
+              <OutArgument x:TypeArguments="x:Int32">[bCount]</OutArgument>
             </Assign.To>
             <Assign.Value>
-              <InArgument x:TypeArguments="njl:JArray">[If(beneficiaries IsNot Nothing AndAlso beneficiaries("primary") IsNot Nothing, CType(beneficiaries("primary"), JArray), New JArray())]</InArgument>
+              <InArgument x:TypeArguments="x:Int32">[If(beneficiaries IsNot Nothing, beneficiaries.Count, 0)]</InArgument>
             </Assign.Value>
             <sap:WorkflowViewStateService.ViewState>
               <scg:Dictionary x:TypeArguments="x:String, x:Object">
@@ -122,150 +115,22 @@
               </scg:Dictionary>
             </sap:WorkflowViewStateService.ViewState>
           </Assign>
-          <Assign DisplayName="Extract Contingent" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="Assign_3">
-            <Assign.To>
-              <OutArgument x:TypeArguments="njl:JArray">[contingent]</OutArgument>
-            </Assign.To>
-            <Assign.Value>
-              <InArgument x:TypeArguments="njl:JArray">[If(beneficiaries IsNot Nothing AndAlso beneficiaries("contingent") IsNot Nothing, CType(beneficiaries("contingent"), JArray), New JArray())]</InArgument>
-            </Assign.Value>
+          <ui:LogMessage DisplayName="Log Beneficiary Count" sap:VirtualizedContainerService.HintSize="480,48" sap2010:WorkflowViewState.IdRef="LogMessage_1" Level="Info" Message="[&quot;C-05: Beneficiaries on file = &quot; &amp; bCount.ToString() &amp; &quot; (hasLifeLine=&quot; &amp; in_HasLifeLine.ToString() &amp; &quot;)&quot;]">
             <sap:WorkflowViewStateService.ViewState>
               <scg:Dictionary x:TypeArguments="x:String, x:Object">
                 <x:Boolean x:Key="IsExpanded">False</x:Boolean>
               </scg:Dictionary>
             </sap:WorkflowViewStateService.ViewState>
-          </Assign>
-          <ForEach x:TypeArguments="njl:JToken" DisplayName="Sum Primary" sap:VirtualizedContainerService.HintSize="510.4,168" sap2010:WorkflowViewState.IdRef="ForEach`1_1" Values="[primary]">
-            <ActivityAction x:TypeArguments="njl:JToken">
-              <ActivityAction.Argument>
-                <DelegateInArgument x:TypeArguments="njl:JToken" Name="pBen" />
-              </ActivityAction.Argument>
-              <Sequence sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_1">
-                <sap:WorkflowViewStateService.ViewState>
-                  <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                    <x:Boolean x:Key="IsExpanded">True</x:Boolean>
-                  </scg:Dictionary>
-                </sap:WorkflowViewStateService.ViewState>
-                <Assign DisplayName="Add to pSum" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_4">
-                  <Assign.To>
-                    <OutArgument x:TypeArguments="x:Decimal">[pSum]</OutArgument>
-                  </Assign.To>
-                  <Assign.Value>
-                    <InArgument x:TypeArguments="x:Decimal">[pSum + If(pBen("allocation") IsNot Nothing, CDec(pBen("allocation")), 0D)]</InArgument>
-                  </Assign.Value>
-                  <sap:WorkflowViewStateService.ViewState>
-                    <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                      <x:Boolean x:Key="IsExpanded">False</x:Boolean>
-                    </scg:Dictionary>
-                  </sap:WorkflowViewStateService.ViewState>
-                </Assign>
-              </Sequence>
-            </ActivityAction>
-          </ForEach>
-          <ForEach x:TypeArguments="njl:JToken" DisplayName="Sum Contingent" sap:VirtualizedContainerService.HintSize="510.4,168" sap2010:WorkflowViewState.IdRef="ForEach`1_2" Values="[contingent]">
-            <ActivityAction x:TypeArguments="njl:JToken">
-              <ActivityAction.Argument>
-                <DelegateInArgument x:TypeArguments="njl:JToken" Name="cBen" />
-              </ActivityAction.Argument>
-              <Sequence sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_2">
-                <sap:WorkflowViewStateService.ViewState>
-                  <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                    <x:Boolean x:Key="IsExpanded">True</x:Boolean>
-                  </scg:Dictionary>
-                </sap:WorkflowViewStateService.ViewState>
-                <Assign DisplayName="Add to cSum" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_5">
-                  <Assign.To>
-                    <OutArgument x:TypeArguments="x:Decimal">[cSum]</OutArgument>
-                  </Assign.To>
-                  <Assign.Value>
-                    <InArgument x:TypeArguments="x:Decimal">[cSum + If(cBen("allocation") IsNot Nothing, CDec(cBen("allocation")), 0D)]</InArgument>
-                  </Assign.Value>
-                  <sap:WorkflowViewStateService.ViewState>
-                    <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                      <x:Boolean x:Key="IsExpanded">False</x:Boolean>
-                    </scg:Dictionary>
-                  </sap:WorkflowViewStateService.ViewState>
-                </Assign>
-              </Sequence>
-            </ActivityAction>
-          </ForEach>
-          <If Condition="[(primary.Count = 0 OrElse pSum = 100D) AndAlso (contingent.Count = 0 OrElse cSum = 100D)]" DisplayName="Sums valid (100% if any)?" sap:VirtualizedContainerService.HintSize="510.4,644" sap2010:WorkflowViewState.IdRef="If_2">
+          </ui:LogMessage>
+          <If Condition="[in_HasLifeLine AndAlso bCount = 0]" DisplayName="Life line elected but no beneficiaries?" sap:VirtualizedContainerService.HintSize="480,360" sap2010:WorkflowViewState.IdRef="If_1">
             <If.Then>
-              <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="510.4,408" sap2010:WorkflowViewState.IdRef="Sequence_4">
+              <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="480,192" sap2010:WorkflowViewState.IdRef="Sequence_1">
                 <sap:WorkflowViewStateService.ViewState>
                   <scg:Dictionary x:TypeArguments="x:String, x:Object">
                     <x:Boolean x:Key="IsExpanded">True</x:Boolean>
                   </scg:Dictionary>
                 </sap:WorkflowViewStateService.ViewState>
-                <If Condition="[in_HasLifeLine AndAlso primary.Count = 0]" DisplayName="Life line requires primary?" sap:VirtualizedContainerService.HintSize="480,360" sap2010:WorkflowViewState.IdRef="If_1">
-                  <If.Then>
-                    <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="480,192" sap2010:WorkflowViewState.IdRef="Sequence_3">
-                      <sap:WorkflowViewStateService.ViewState>
-                        <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                          <x:Boolean x:Key="IsExpanded">True</x:Boolean>
-                        </scg:Dictionary>
-                      </sap:WorkflowViewStateService.ViewState>
-                      <Assign DisplayName="Set BENEFICIARIES_MISSING" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_6">
-                        <Assign.To>
-                          <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
-                        </Assign.To>
-                        <Assign.Value>
-                          <InArgument x:TypeArguments="x:Boolean">[False]</InArgument>
-                        </Assign.Value>
-                        <sap:WorkflowViewStateService.ViewState>
-                          <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                            <x:Boolean x:Key="IsExpanded">False</x:Boolean>
-                          </scg:Dictionary>
-                        </sap:WorkflowViewStateService.ViewState>
-                      </Assign>
-                      <Assign DisplayName="Set Code" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_7">
-                        <Assign.To>
-                          <OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument>
-                        </Assign.To>
-                        <Assign.Value>
-                          <InArgument x:TypeArguments="x:String">BENEFICIARIES_MISSING</InArgument>
-                        </Assign.Value>
-                        <sap:WorkflowViewStateService.ViewState>
-                          <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                            <x:Boolean x:Key="IsExpanded">False</x:Boolean>
-                          </scg:Dictionary>
-                        </sap:WorkflowViewStateService.ViewState>
-                      </Assign>
-                      <Assign DisplayName="Set Detail" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_8">
-                        <Assign.To>
-                          <OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument>
-                        </Assign.To>
-                        <Assign.Value>
-                          <InArgument x:TypeArguments="x:String">Life line elected but no primary beneficiary on file</InArgument>
-                        </Assign.Value>
-                        <sap:WorkflowViewStateService.ViewState>
-                          <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                            <x:Boolean x:Key="IsExpanded">False</x:Boolean>
-                          </scg:Dictionary>
-                        </sap:WorkflowViewStateService.ViewState>
-                      </Assign>
-                    </Sequence>
-                  </If.Then>
-                  <If.Else>
-                    <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_9">
-                      <sap:WorkflowViewStateService.ViewState>
-                        <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                          <x:Boolean x:Key="IsExpanded">True</x:Boolean>
-                        </scg:Dictionary>
-                      </sap:WorkflowViewStateService.ViewState>
-                    </Sequence>
-                  </If.Else>
-                </If>
-              </Sequence>
-            </If.Then>
-            <If.Else>
-              <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,164" sap2010:WorkflowViewState.IdRef="Sequence_5">
-                <sap:WorkflowViewStateService.ViewState>
-                  <scg:Dictionary x:TypeArguments="x:String, x:Object">
-                    <x:Boolean x:Key="IsExpanded">True</x:Boolean>
-                  </scg:Dictionary>
-                </sap:WorkflowViewStateService.ViewState>
-                <Assign DisplayName="Set Invalid" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_9">
+                <Assign DisplayName="Mark Invalid" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_3">
                   <Assign.To>
                     <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
                   </Assign.To>
@@ -278,12 +143,12 @@
                     </scg:Dictionary>
                   </sap:WorkflowViewStateService.ViewState>
                 </Assign>
-                <Assign DisplayName="Set INVALID_SUM Code" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_10">
+                <Assign DisplayName="Set BENEFICIARIES_MISSING" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_4">
                   <Assign.To>
                     <OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument>
                   </Assign.To>
                   <Assign.Value>
-                    <InArgument x:TypeArguments="x:String">BENEFICIARIES_INVALID_SUM</InArgument>
+                    <InArgument x:TypeArguments="x:String">BENEFICIARIES_MISSING</InArgument>
                   </Assign.Value>
                   <sap:WorkflowViewStateService.ViewState>
                     <scg:Dictionary x:TypeArguments="x:String, x:Object">
@@ -291,27 +156,41 @@
                     </scg:Dictionary>
                   </sap:WorkflowViewStateService.ViewState>
                 </Assign>
-                <Assign DisplayName="Set Detail" sap2010:WorkflowViewState.IdRef="Assign_11">
+                <Assign DisplayName="Set Detail" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_5">
                   <Assign.To>
                     <OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument>
                   </Assign.To>
                   <Assign.Value>
-                    <InArgument x:TypeArguments="x:String">["Beneficiary allocations: primary=" &amp; pSum.ToString() &amp; "% contingent=" &amp; cSum.ToString() &amp; "% (must sum to 100%)"]</InArgument>
+                    <InArgument x:TypeArguments="x:String">Life line elected but no beneficiaries on file (BR-13)</InArgument>
                   </Assign.Value>
+                  <sap:WorkflowViewStateService.ViewState>
+                    <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                      <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+                    </scg:Dictionary>
+                  </sap:WorkflowViewStateService.ViewState>
                 </Assign>
+              </Sequence>
+            </If.Then>
+            <If.Else>
+              <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_5">
+                <sap:WorkflowViewStateService.ViewState>
+                  <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                    <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+                  </scg:Dictionary>
+                </sap:WorkflowViewStateService.ViewState>
               </Sequence>
             </If.Else>
           </If>
         </Sequence>
       </If.Then>
       <If.Else>
-        <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,144" sap2010:WorkflowViewState.IdRef="Sequence_7">
+        <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,144" sap2010:WorkflowViewState.IdRef="Sequence_3">
           <sap:WorkflowViewStateService.ViewState>
             <scg:Dictionary x:TypeArguments="x:String, x:Object">
               <x:Boolean x:Key="IsExpanded">True</x:Boolean>
             </scg:Dictionary>
           </sap:WorkflowViewStateService.ViewState>
-          <Assign DisplayName="Mark Invalid (HTTP)" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_12">
+          <Assign DisplayName="Mark Invalid (HTTP)" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_6">
             <Assign.To>
               <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
             </Assign.To>
@@ -324,7 +203,7 @@
               </scg:Dictionary>
             </sap:WorkflowViewStateService.ViewState>
           </Assign>
-          <Assign DisplayName="Set HTTP ExceptionCode" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_13">
+          <Assign DisplayName="Set HTTP ExceptionCode" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_7">
             <Assign.To>
               <OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument>
             </Assign.To>

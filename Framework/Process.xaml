@@ -47,6 +47,7 @@
   <Sequence DisplayName="Process Transaction" sap:VirtualizedContainerService.HintSize="828.2,3744" sap2010:WorkflowViewState.IdRef="Sequence_Process">
     <Sequence.Variables>
       <Variable x:TypeArguments="x:String" Name="baseUrl" />
+      <Variable x:TypeArguments="x:String" Name="apiKey" />
       <Variable x:TypeArguments="x:String" Name="postingOrder" />
       <Variable x:TypeArguments="x:String" Name="irsLimits" />
       <Variable x:TypeArguments="x:String" Name="transactionId" />
@@ -301,6 +302,7 @@
     <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="C-02 InitWorkflow (load assets/secret)" sap:VirtualizedContainerService.HintSize="692.8,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_1" UnSafe="False" WorkflowFileName="Framework\InitWorkflow.xaml">
       <ui:InvokeWorkflowFile.Arguments>
         <OutArgument x:TypeArguments="x:String" x:Key="out_BaseUrl">[baseUrl]</OutArgument>
+        <OutArgument x:TypeArguments="x:String" x:Key="out_ApiKey">[apiKey]</OutArgument>
         <OutArgument x:TypeArguments="x:String" x:Key="out_PostingOrder">[postingOrder]</OutArgument>
         <OutArgument x:TypeArguments="x:String" x:Key="out_IRSLimitsJson">[irsLimits]</OutArgument>
       </ui:InvokeWorkflowFile.Arguments>
@@ -313,6 +315,7 @@
     <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="C-03 IdentityAssertion" sap:VirtualizedContainerService.HintSize="692.8,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_2" UnSafe="False" WorkflowFileName="Process\IdentityAssertion.xaml">
       <ui:InvokeWorkflowFile.Arguments>
         <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
         <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
         <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
         <OutArgument x:TypeArguments="x:String" x:Key="out_ExceptionCode">[exceptionCode]</OutArgument>
@@ -334,6 +337,7 @@
           <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="C-04 DependentPreCheck" sap:VirtualizedContainerService.HintSize="662.4,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_3" UnSafe="False" WorkflowFileName="Process\DependentPreCheck.xaml">
             <ui:InvokeWorkflowFile.Arguments>
               <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
               <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
               <InArgument x:TypeArguments="x:String" x:Key="in_MedicalTier">[medicalTier]</InArgument>
               <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
@@ -357,6 +361,7 @@
                 <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="C-05 BeneficiaryPreCheck" sap:VirtualizedContainerService.HintSize="632,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_4" UnSafe="False" WorkflowFileName="Process\BeneficiaryPreCheck.xaml">
                   <ui:InvokeWorkflowFile.Arguments>
                     <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
                     <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
                     <InArgument x:TypeArguments="x:Boolean" x:Key="in_HasLifeLine">[hasLifeLine]</InArgument>
                     <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
@@ -380,6 +385,7 @@
                       <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="C-06 DuplicateActiveCheck" sap:VirtualizedContainerService.HintSize="601.6,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_5" UnSafe="False" WorkflowFileName="Process\DuplicateActiveCheck.xaml">
                         <ui:InvokeWorkflowFile.Arguments>
                           <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
                           <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
                           <InArgument x:TypeArguments="x:Int32" x:Key="in_PlanYear">[planYear]</InArgument>
                           <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsDuplicate">[isDup]</OutArgument>
@@ -423,6 +429,7 @@
                             <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="C-07 PostElectionLines" sap:VirtualizedContainerService.HintSize="571.2,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_6" UnSafe="False" WorkflowFileName="Process\PostElectionLines.xaml">
                               <ui:InvokeWorkflowFile.Arguments>
                                 <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
                                 <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
                                 <InArgument x:TypeArguments="njl:JObject" x:Key="in_Elections">[elections]</InArgument>
                                 <OutArgument x:TypeArguments="x:Int32" x:Key="out_LinesPosted">[linesPosted]</OutArgument>
@@ -447,6 +454,7 @@
                                   <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="C-08 ReconcileDraft" sap:VirtualizedContainerService.HintSize="540.8,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_7" UnSafe="False" WorkflowFileName="Process\ReconcileDraft.xaml">
                                     <ui:InvokeWorkflowFile.Arguments>
                                       <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
                                       <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
                                       <InArgument x:TypeArguments="x:Int32" x:Key="in_ExpectedLineCount">[linesPosted]</InArgument>
                                       <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
@@ -470,6 +478,7 @@
                                         <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="C-09 CreatePendingEnrollment" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_8" UnSafe="False" WorkflowFileName="Process\CreatePendingEnrollment.xaml">
                                           <ui:InvokeWorkflowFile.Arguments>
                                             <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
                                             <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
                                             <OutArgument x:TypeArguments="x:String" x:Key="out_EnrollmentId">[enrollmentId]</OutArgument>
                                             <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
@@ -493,6 +502,7 @@
                                               <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="C-10 ConfirmToActive" sap:VirtualizedContainerService.HintSize="480,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_9" UnSafe="False" WorkflowFileName="Process\ConfirmToActive.xaml">
                                                 <ui:InvokeWorkflowFile.Arguments>
                                                   <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
                                                   <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
                                                   <OutArgument x:TypeArguments="x:String" x:Key="out_ConfirmationNumber">[confirmationNumber]</OutArgument>
                                                   <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>

@@ -1,64 +1,106 @@
-<Activity mc:Ignorable="sap sap2010" x:Class="InitWorkflow" mva:VisualBasic.Settings="{x:Null}"
- xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
- xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
- xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
- xmlns:s="clr-namespace:System;assembly=System.Private.CoreLib"
- xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
- xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
- xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
- xmlns:ss="clr-namespace:System.Security;assembly=System.Private.CoreLib"
- xmlns:ui="http://schemas.uipath.com/workflow/activities"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <x:Members>
-        <x:Property Name="out_BaseUrl" Type="OutArgument(x:String)" />
-        <x:Property Name="out_PostingOrder" Type="OutArgument(x:String)" />
-        <x:Property Name="out_IRSLimitsJson" Type="OutArgument(x:String)" />
-    </x:Members>
-    <TextExpression.NamespacesForImplementation>
-        <sco:Collection x:TypeArguments="x:String">
-            <x:String>System.Activities</x:String>
-            <x:String>System</x:String>
-            <x:String>System.Security</x:String>
-            <x:String>System.Net</x:String>
-            <x:String>UiPath.Core.Activities</x:String>
-        </sco:Collection>
-    </TextExpression.NamespacesForImplementation>
-    <TextExpression.ReferencesForImplementation>
-        <sco:Collection x:TypeArguments="AssemblyReference">
-            <AssemblyReference>System.Activities</AssemblyReference>
-            <AssemblyReference>System</AssemblyReference>
-            <AssemblyReference>System.Private.CoreLib</AssemblyReference>
-            <AssemblyReference>UiPath.System.Activities</AssemblyReference>
-        </sco:Collection>
-    </TextExpression.ReferencesForImplementation>
-    <Sequence DisplayName="Init">
-        <Sequence.Variables>
-            <Variable x:TypeArguments="x:Object" Name="baseUrlObj" />
-            <Variable x:TypeArguments="x:Object" Name="postingOrderObj" />
-            <Variable x:TypeArguments="x:Object" Name="irsLimitsObj" />
-        </Sequence.Variables>
-        <ui:LogMessage DisplayName="Log Init Start" Level="Info" Message="Performer Init: loading assets" />
-        <ui:GetRobotAsset DisplayName="C-02a Get BaseUrl" AssetName="ACB.BenefitConnect.BaseUrl" CacheStrategy="None">
-            <ui:GetRobotAsset.Value><OutArgument x:TypeArguments="x:Object">[baseUrlObj]</OutArgument></ui:GetRobotAsset.Value>
-        </ui:GetRobotAsset>
-        <Assign DisplayName="Assign BaseUrl">
-            <Assign.To><OutArgument x:TypeArguments="x:String">[out_BaseUrl]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:String">[If(baseUrlObj IsNot Nothing, baseUrlObj.ToString(), &quot;&quot;)]</InArgument></Assign.Value>
-        </Assign>
-        <ui:GetRobotAsset DisplayName="Get PostingOrder" AssetName="ACB.NewHireOnboarding.PostingOrder" CacheStrategy="None">
-            <ui:GetRobotAsset.Value><OutArgument x:TypeArguments="x:Object">[postingOrderObj]</OutArgument></ui:GetRobotAsset.Value>
-        </ui:GetRobotAsset>
-        <Assign DisplayName="Assign PostingOrder">
-            <Assign.To><OutArgument x:TypeArguments="x:String">[out_PostingOrder]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:String">[If(postingOrderObj IsNot Nothing, postingOrderObj.ToString(), &quot;medical,dental,vision,basicLife,voluntaryLife,std,ltd,ad_and_d,fsaHealth,fsaDependent,hsa,commuterTransit,commuterParking,retirement&quot;)]</InArgument></Assign.Value>
-        </Assign>
-        <ui:GetRobotAsset DisplayName="Get IRS Limits" AssetName="ACB.NewHireOnboarding.IRSLimits.2026" CacheStrategy="None">
-            <ui:GetRobotAsset.Value><OutArgument x:TypeArguments="x:Object">[irsLimitsObj]</OutArgument></ui:GetRobotAsset.Value>
-        </ui:GetRobotAsset>
-        <Assign DisplayName="Assign IRS Limits">
-            <Assign.To><OutArgument x:TypeArguments="x:String">[out_IRSLimitsJson]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:String">[If(irsLimitsObj IsNot Nothing, irsLimitsObj.ToString(), &quot;{&quot;&quot;fsaHealth&quot;&quot;:3300,&quot;&quot;fsaDcSingle&quot;&quot;:5000,&quot;&quot;fsaDcMfs&quot;&quot;:2500,&quot;&quot;hsaSelf&quot;&quot;:4300,&quot;&quot;hsaFamily&quot;&quot;:8550,&quot;&quot;commuterTransit&quot;&quot;:325,&quot;&quot;commuterParking&quot;&quot;:325,&quot;&quot;k401Deferral&quot;&quot;:23500,&quot;&quot;k401Catchup&quot;&quot;:7500}&quot;)]</InArgument></Assign.Value>
-        </Assign>
-        <ui:LogMessage DisplayName="Log Init Done" Level="Info" Message="Init complete: BaseUrl + PostingOrder + IRSLimits loaded" />
-    </Sequence>
+<Activity mc:Ignorable="sap sap2010" x:Class="InitWorkflow" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib" xmlns:ui="http://schemas.uipath.com/workflow/activities" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <x:Members>
+    <x:Property Name="out_BaseUrl" Type="OutArgument(x:String)" />
+    <x:Property Name="out_ApiKey" Type="OutArgument(x:String)" />
+    <x:Property Name="out_PostingOrder" Type="OutArgument(x:String)" />
+    <x:Property Name="out_IRSLimitsJson" Type="OutArgument(x:String)" />
+  </x:Members>
+  <VisualBasic.Settings>
+    <x:Null />
+  </VisualBasic.Settings>
+  <sap2010:WorkflowViewState.IdRef>ActivityBuilder_1</sap2010:WorkflowViewState.IdRef>
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>GlobalConstantsNamespace</x:String>
+      <x:String>GlobalVariablesNamespace</x:String>
+      <x:String>System</x:String>
+      <x:String>System.Activities</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Collections.ObjectModel</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>System.Net</x:String>
+      <x:String>System.Security</x:String>
+      <x:String>UiPath.Core</x:String>
+      <x:String>UiPath.Core.Activities</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Activities</AssemblyReference>
+      <AssemblyReference>System.ComponentModel.TypeConverter</AssemblyReference>
+      <AssemblyReference>System.Linq</AssemblyReference>
+      <AssemblyReference>System.ObjectModel</AssemblyReference>
+      <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.UiAutomation.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="Init" sap2010:WorkflowViewState.IdRef="Sequence_1">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:Object" Name="baseUrlObj" />
+      <Variable x:TypeArguments="x:Object" Name="apiKeyObj" />
+      <Variable x:TypeArguments="x:Object" Name="postingOrderObj" />
+      <Variable x:TypeArguments="x:Object" Name="irsLimitsObj" />
+    </Sequence.Variables>
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
+    <ui:LogMessage DisplayName="Log Init Start" sap2010:WorkflowViewState.IdRef="LogMessage_1" Level="Info" Message="[&quot;Performer Init: loading assets&quot;]" />
+    <ui:GetRobotAsset TimeoutMS="{x:Null}" AssetName="ACB.BenefitConnect.BaseUrl" CacheStrategy="None" DisplayName="C-02a Get BaseUrl" sap2010:WorkflowViewState.IdRef="GetRobotAsset_1">
+      <ui:GetRobotAsset.Value>
+        <OutArgument x:TypeArguments="x:Object">[baseUrlObj]</OutArgument>
+      </ui:GetRobotAsset.Value>
+    </ui:GetRobotAsset>
+    <Assign DisplayName="Assign BaseUrl" sap2010:WorkflowViewState.IdRef="Assign_1">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:String">[out_BaseUrl]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">[If(baseUrlObj IsNot Nothing, baseUrlObj.ToString(), "")]</InArgument>
+      </Assign.Value>
+    </Assign>
+    <ui:GetRobotAsset TimeoutMS="{x:Null}" AssetName="ACB.BenefitConnect.ApiKey" CacheStrategy="None" DisplayName="Get ApiKey" sap2010:WorkflowViewState.IdRef="GetRobotAsset_2">
+      <ui:GetRobotAsset.Value>
+        <OutArgument x:TypeArguments="x:Object">[apiKeyObj]</OutArgument>
+      </ui:GetRobotAsset.Value>
+    </ui:GetRobotAsset>
+    <Assign DisplayName="Assign ApiKey" sap2010:WorkflowViewState.IdRef="Assign_2">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:String">[out_ApiKey]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">[If(apiKeyObj IsNot Nothing, apiKeyObj.ToString(), "")]</InArgument>
+      </Assign.Value>
+    </Assign>
+    <ui:GetRobotAsset TimeoutMS="{x:Null}" AssetName="ACB.NewHireOnboarding.PostingOrder" CacheStrategy="None" DisplayName="Get PostingOrder" sap2010:WorkflowViewState.IdRef="GetRobotAsset_3">
+      <ui:GetRobotAsset.Value>
+        <OutArgument x:TypeArguments="x:Object">[postingOrderObj]</OutArgument>
+      </ui:GetRobotAsset.Value>
+    </ui:GetRobotAsset>
+    <Assign DisplayName="Assign PostingOrder" sap2010:WorkflowViewState.IdRef="Assign_3">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:String">[out_PostingOrder]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">[If(postingOrderObj IsNot Nothing, postingOrderObj.ToString(), "medical,dental,vision,basicLife,voluntaryLife,std,ltd,ad_and_d,fsaHealth,fsaDependent,hsa,commuterTransit,commuterParking,retirement")]</InArgument>
+      </Assign.Value>
+    </Assign>
+    <ui:GetRobotAsset TimeoutMS="{x:Null}" AssetName="ACB.NewHireOnboarding.IRSLimits.2026" CacheStrategy="None" DisplayName="Get IRS Limits" sap2010:WorkflowViewState.IdRef="GetRobotAsset_4">
+      <ui:GetRobotAsset.Value>
+        <OutArgument x:TypeArguments="x:Object">[irsLimitsObj]</OutArgument>
+      </ui:GetRobotAsset.Value>
+    </ui:GetRobotAsset>
+    <Assign DisplayName="Assign IRS Limits" sap2010:WorkflowViewState.IdRef="Assign_4">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:String">[out_IRSLimitsJson]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">[If(irsLimitsObj IsNot Nothing, irsLimitsObj.ToString(), "{""fsaHealth"":3300,""fsaDcSingle"":5000,""fsaDcMfs"":2500,""hsaSelf"":4300,""hsaFamily"":8550,""commuterTransit"":325,""commuterParking"":325,""k401Deferral"":23500,""k401Catchup"":7500}")]</InArgument>
+      </Assign.Value>
+    </Assign>
+    <ui:LogMessage DisplayName="Log Init Done" sap2010:WorkflowViewState.IdRef="LogMessage_2" Level="Info" Message="[&quot;Init complete: BaseUrl + PostingOrder + IRSLimits loaded&quot;]" />
+  </Sequence>
 </Activity>
