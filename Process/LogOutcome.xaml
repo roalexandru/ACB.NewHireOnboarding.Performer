@@ -1,43 +1,56 @@
-<Activity mc:Ignorable="sap sap2010" x:Class="LogOutcome" mva:VisualBasic.Settings="{x:Null}"
- xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
- xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
- xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
- xmlns:s="clr-namespace:System;assembly=System.Private.CoreLib"
- xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
- xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
- xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
- xmlns:ui="http://schemas.uipath.com/workflow/activities"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <x:Members>
-        <x:Property Name="in_TransactionId" Type="InArgument(x:String)" />
-        <x:Property Name="in_DispatcherPollId" Type="InArgument(x:String)" />
-        <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
-        <x:Property Name="in_Username" Type="InArgument(x:String)" />
-        <x:Property Name="in_HireDate" Type="InArgument(x:String)" />
-        <x:Property Name="in_PlanYear" Type="InArgument(x:Int32)" />
-        <x:Property Name="in_StartedAt" Type="InArgument(s:DateTime)" />
-        <x:Property Name="in_FinishedAt" Type="InArgument(s:DateTime)" />
-        <x:Property Name="in_OutcomeCode" Type="InArgument(x:String)" />
-        <x:Property Name="in_EnrollmentId" Type="InArgument(x:String)" />
-        <x:Property Name="in_ConfirmationNumber" Type="InArgument(x:String)" />
-        <x:Property Name="in_LinesPosted" Type="InArgument(x:Int32)" />
-        <x:Property Name="in_ExceptionCode" Type="InArgument(x:String)" />
-        <x:Property Name="in_ExceptionDetail" Type="InArgument(x:String)" />
-        <x:Property Name="in_IntakeFormRef" Type="InArgument(x:String)" />
-    </x:Members>
-    <TextExpression.NamespacesForImplementation>
-        <sco:Collection x:TypeArguments="x:String">
-            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>UiPath.Core.Activities</x:String>
-        </sco:Collection>
-    </TextExpression.NamespacesForImplementation>
-    <TextExpression.ReferencesForImplementation>
-        <sco:Collection x:TypeArguments="AssemblyReference">
-            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference>
-        </sco:Collection>
-    </TextExpression.ReferencesForImplementation>
-    <Sequence DisplayName="C-11 Log Outcome">
-        <ui:LogMessage DisplayName="Log Transaction Outcome"
-                       Level="Info"
-                       Message="[&quot;TXN_LOG TxnId=&quot; &amp; If(in_TransactionId, &quot;&quot;) &amp; &quot; PollId=&quot; &amp; If(in_DispatcherPollId, &quot;&quot;) &amp; &quot; EmployeeId=&quot; &amp; If(in_EmployeeId, &quot;&quot;) &amp; &quot; Username=&quot; &amp; If(in_Username, &quot;&quot;) &amp; &quot; HireDate=&quot; &amp; If(in_HireDate, &quot;&quot;) &amp; &quot; PlanYear=&quot; &amp; in_PlanYear.ToString() &amp; &quot; Started=&quot; &amp; in_StartedAt.ToString(&quot;o&quot;) &amp; &quot; Finished=&quot; &amp; in_FinishedAt.ToString(&quot;o&quot;) &amp; &quot; Outcome=&quot; &amp; If(in_OutcomeCode, &quot;&quot;) &amp; &quot; EnrollmentId=&quot; &amp; If(in_EnrollmentId, &quot;&quot;) &amp; &quot; ConfirmationNumber=&quot; &amp; If(in_ConfirmationNumber, &quot;&quot;) &amp; &quot; LinesPosted=&quot; &amp; in_LinesPosted.ToString() &amp; &quot; ExceptionCode=&quot; &amp; If(in_ExceptionCode, &quot;&quot;) &amp; &quot; ExceptionDetail=&quot; &amp; If(in_ExceptionDetail, &quot;&quot;) &amp; &quot; IntakeFormRef=&quot; &amp; If(in_IntakeFormRef, &quot;&quot;)]" />
-    </Sequence>
+<Activity mc:Ignorable="sap sap2010" x:Class="LogOutcome" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:s="clr-namespace:System;assembly=System.Private.CoreLib" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib" xmlns:ui="http://schemas.uipath.com/workflow/activities" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <x:Members>
+    <x:Property Name="in_TransactionId" Type="InArgument(x:String)" />
+    <x:Property Name="in_DispatcherPollId" Type="InArgument(x:String)" />
+    <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
+    <x:Property Name="in_Username" Type="InArgument(x:String)" />
+    <x:Property Name="in_HireDate" Type="InArgument(x:String)" />
+    <x:Property Name="in_PlanYear" Type="InArgument(x:Int32)" />
+    <x:Property Name="in_StartedAt" Type="InArgument(s:DateTime)" />
+    <x:Property Name="in_FinishedAt" Type="InArgument(s:DateTime)" />
+    <x:Property Name="in_OutcomeCode" Type="InArgument(x:String)" />
+    <x:Property Name="in_EnrollmentId" Type="InArgument(x:String)" />
+    <x:Property Name="in_ConfirmationNumber" Type="InArgument(x:String)" />
+    <x:Property Name="in_LinesPosted" Type="InArgument(x:Int32)" />
+    <x:Property Name="in_ExceptionCode" Type="InArgument(x:String)" />
+    <x:Property Name="in_ExceptionDetail" Type="InArgument(x:String)" />
+    <x:Property Name="in_IntakeFormRef" Type="InArgument(x:String)" />
+  </x:Members>
+  <VisualBasic.Settings>
+    <x:Null />
+  </VisualBasic.Settings>
+  <sap2010:WorkflowViewState.IdRef>ActivityBuilder_1</sap2010:WorkflowViewState.IdRef>
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>GlobalConstantsNamespace</x:String>
+      <x:String>GlobalVariablesNamespace</x:String>
+      <x:String>System</x:String>
+      <x:String>System.Activities</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Collections.ObjectModel</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+      <x:String>UiPath.Core.Activities</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Activities</AssemblyReference>
+      <AssemblyReference>System.ComponentModel.TypeConverter</AssemblyReference>
+      <AssemblyReference>System.Linq</AssemblyReference>
+      <AssemblyReference>System.ObjectModel</AssemblyReference>
+      <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.UiAutomation.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="C-11 Log Outcome" sap2010:WorkflowViewState.IdRef="Sequence_1">
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
+    <ui:LogMessage DisplayName="Log Transaction Outcome" sap2010:WorkflowViewState.IdRef="LogMessage_1" Level="Info" Message="[&quot;TXN_LOG TxnId=&quot; &amp; If(in_TransactionId, &quot;&quot;) &amp; &quot; PollId=&quot; &amp; If(in_DispatcherPollId, &quot;&quot;) &amp; &quot; EmployeeId=&quot; &amp; If(in_EmployeeId, &quot;&quot;) &amp; &quot; Username=&quot; &amp; If(in_Username, &quot;&quot;) &amp; &quot; HireDate=&quot; &amp; If(in_HireDate, &quot;&quot;) &amp; &quot; PlanYear=&quot; &amp; in_PlanYear.ToString() &amp; &quot; Started=&quot; &amp; in_StartedAt.ToString(&quot;o&quot;) &amp; &quot; Finished=&quot; &amp; in_FinishedAt.ToString(&quot;o&quot;) &amp; &quot; Outcome=&quot; &amp; If(in_OutcomeCode, &quot;&quot;) &amp; &quot; EnrollmentId=&quot; &amp; If(in_EnrollmentId, &quot;&quot;) &amp; &quot; ConfirmationNumber=&quot; &amp; If(in_ConfirmationNumber, &quot;&quot;) &amp; &quot; LinesPosted=&quot; &amp; in_LinesPosted.ToString() &amp; &quot; ExceptionCode=&quot; &amp; If(in_ExceptionCode, &quot;&quot;) &amp; &quot; ExceptionDetail=&quot; &amp; If(in_ExceptionDetail, &quot;&quot;) &amp; &quot; IntakeFormRef=&quot; &amp; If(in_IntakeFormRef, &quot;&quot;)]" />
+  </Sequence>
 </Activity>

@@ -1,95 +1,177 @@
-<Activity mc:Ignorable="sap sap2010" x:Class="IdentityAssertion" mva:VisualBasic.Settings="{x:Null}"
- xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
- xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
- xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
- xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
- xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
- xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
- xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
- xmlns:ui="http://schemas.uipath.com/workflow/activities"
- xmlns:web="clr-namespace:UiPath.Web.Activities;assembly=UiPath.Web.Activities"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <x:Members>
-        <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
-        <x:Property Name="in_ApiKey" Type="InArgument(x:String)" />
-        <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
-        <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
-        <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
-    </x:Members>
-    <TextExpression.NamespacesForImplementation>
-        <sco:Collection x:TypeArguments="x:String">
-            <x:String>System.Activities</x:String>
-            <x:String>System</x:String>
-            <x:String>Newtonsoft.Json.Linq</x:String>
-            <x:String>UiPath.Core.Activities</x:String>
-            <x:String>UiPath.Web.Activities</x:String>
-        </sco:Collection>
-    </TextExpression.NamespacesForImplementation>
-    <TextExpression.ReferencesForImplementation>
-        <sco:Collection x:TypeArguments="AssemblyReference">
-            <AssemblyReference>System.Activities</AssemblyReference>
-            <AssemblyReference>System</AssemblyReference>
-            <AssemblyReference>System.Private.CoreLib</AssemblyReference>
-            <AssemblyReference>Newtonsoft.Json</AssemblyReference>
-            <AssemblyReference>UiPath.System.Activities</AssemblyReference>
-            <AssemblyReference>UiPath.Web.Activities</AssemblyReference>
-        </sco:Collection>
-    </TextExpression.ReferencesForImplementation>
-    <Sequence DisplayName="C-03 Identity Assertion">
-        <Sequence.Variables>
-            <Variable x:TypeArguments="x:Int32" Name="status" />
-            <Variable x:TypeArguments="x:String" Name="body" />
-            <Variable x:TypeArguments="x:String" Name="errCode" />
-            <Variable x:TypeArguments="njl:JObject" Name="employee" />
-        </Sequence.Variables>
-        <Assign DisplayName="Default IsValid = False">
-            <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:Boolean">[False]</InArgument></Assign.Value>
-        </Assign>
-        <ui:LogMessage DisplayName="Log C-03 Start" Level="Trace" Message="[&quot;C-03: GET /api/employees/me for &quot; &amp; in_EmployeeId]" />
-        <ui:InvokeWorkflowFile DisplayName="GET /api/employees/me" WorkflowFileName="Framework\HttpGet.xaml">
-            <ui:InvokeWorkflowFile.Arguments>
-                <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_BaseUrl]</InArgument>
-                <InArgument x:TypeArguments="x:String" x:Key="in_ResourcePath">/api/employees/me</InArgument>
-                <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[in_ApiKey]</InArgument>
-                <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[in_EmployeeId]</InArgument>
-                <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[status]</OutArgument>
-                <OutArgument x:TypeArguments="x:String" x:Key="out_Body">[body]</OutArgument>
-                <OutArgument x:TypeArguments="x:String" x:Key="out_ErrorCode">[errCode]</OutArgument>
-            </ui:InvokeWorkflowFile.Arguments>
-        </ui:InvokeWorkflowFile>
-        <If DisplayName="If 200" Condition="[status = 200]">
+<Activity mc:Ignorable="sap sap2010" x:Class="IdentityAssertion" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib" xmlns:ui="http://schemas.uipath.com/workflow/activities" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <x:Members>
+    <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
+    <x:Property Name="in_ApiKey" Type="InArgument(x:String)" />
+    <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
+    <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
+    <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
+  </x:Members>
+  <VisualBasic.Settings>
+    <x:Null />
+  </VisualBasic.Settings>
+  <sap2010:WorkflowViewState.IdRef>ActivityBuilder_1</sap2010:WorkflowViewState.IdRef>
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>GlobalConstantsNamespace</x:String>
+      <x:String>GlobalVariablesNamespace</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+      <x:String>System</x:String>
+      <x:String>System.Activities</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Collections.ObjectModel</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+      <x:String>UiPath.Core.Activities</x:String>
+      <x:String>UiPath.Web.Activities</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Activities</AssemblyReference>
+      <AssemblyReference>System.ComponentModel.TypeConverter</AssemblyReference>
+      <AssemblyReference>System.Linq</AssemblyReference>
+      <AssemblyReference>System.ObjectModel</AssemblyReference>
+      <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.UiAutomation.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.Web.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="C-03 Identity Assertion" sap:VirtualizedContainerService.HintSize="828.2,696" sap2010:WorkflowViewState.IdRef="Sequence_5">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:Int32" Name="status" />
+      <Variable x:TypeArguments="x:String" Name="body" />
+      <Variable x:TypeArguments="x:String" Name="errCode" />
+      <Variable x:TypeArguments="njl:JObject" Name="employee" />
+    </Sequence.Variables>
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
+    <Assign DisplayName="Default IsValid = False" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="Assign_1">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:Boolean">[False]</InArgument>
+      </Assign.Value>
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </Assign>
+    <ui:LogMessage DisplayName="Log C-03 Start" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="LogMessage_1" Level="Trace" Message="[&quot;C-03: GET /api/employees/me for &quot; &amp; in_EmployeeId]">
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </ui:LogMessage>
+    <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" ContinueOnError="{x:Null}" DisplayName="GET /api/employees/me" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_1" UnSafe="False" WorkflowFileName="Framework\HttpGet.xaml">
+      <ui:InvokeWorkflowFile.Arguments>
+        <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_BaseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ResourcePath">/api/employees/me</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[in_ApiKey]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[in_EmployeeId]</InArgument>
+        <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[status]</OutArgument>
+        <OutArgument x:TypeArguments="x:String" x:Key="out_Body">[body]</OutArgument>
+        <OutArgument x:TypeArguments="x:String" x:Key="out_ErrorCode">[errCode]</OutArgument>
+      </ui:InvokeWorkflowFile.Arguments>
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </ui:InvokeWorkflowFile>
+    <If Condition="[status = 200]" DisplayName="If 200" sap:VirtualizedContainerService.HintSize="510.4,528" sap2010:WorkflowViewState.IdRef="If_2">
+      <If.Then>
+        <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="510.4,360" sap2010:WorkflowViewState.IdRef="Sequence_3">
+          <sap:WorkflowViewStateService.ViewState>
+            <scg:Dictionary x:TypeArguments="x:String, x:Object">
+              <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+            </scg:Dictionary>
+          </sap:WorkflowViewStateService.ViewState>
+          <ui:DeserializeJson x:TypeArguments="njl:JObject" JsonSample="{x:Null}" Settings="{x:Null}" DisplayName="Parse Employee" sap:VirtualizedContainerService.HintSize="480,48" sap2010:WorkflowViewState.IdRef="DeserializeJson`1_1" JsonObject="[employee]" JsonString="[body]">
+            <sap:WorkflowViewStateService.ViewState>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+              </scg:Dictionary>
+            </sap:WorkflowViewStateService.ViewState>
+          </ui:DeserializeJson>
+          <If Condition="[employee IsNot Nothing AndAlso employee(&quot;id&quot;) IsNot Nothing AndAlso String.Equals(employee(&quot;id&quot;).ToString(), in_EmployeeId, StringComparison.OrdinalIgnoreCase)]" DisplayName="Id matches?" sap:VirtualizedContainerService.HintSize="480,264" sap2010:WorkflowViewState.IdRef="If_1">
             <If.Then>
-                <Sequence>
-                    <ui:DeserializeJson x:TypeArguments="njl:JObject" DisplayName="Parse Employee" JsonString="[body]" JsonObject="[employee]" />
-                    <If DisplayName="Id matches?" Condition="[employee IsNot Nothing AndAlso employee(&quot;id&quot;) IsNot Nothing AndAlso String.Equals(employee(&quot;id&quot;).ToString(), in_EmployeeId, StringComparison.OrdinalIgnoreCase)]">
-                        <If.Then>
-                            <Sequence>
-                                <Assign DisplayName="Mark Valid">
-                                    <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
-                                    <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
-                                </Assign>
-                            </Sequence>
-                        </If.Then>
-                        <If.Else>
-                            <Sequence>
-                                <Assign DisplayName="Set IDENTITY_MISMATCH">
-                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument></Assign.To>
-                                    <Assign.Value><InArgument x:TypeArguments="x:String">IDENTITY_MISMATCH</InArgument></Assign.Value>
-                                </Assign>
-                            </Sequence>
-                        </If.Else>
-                    </If>
-                </Sequence>
+              <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_1">
+                <sap:WorkflowViewStateService.ViewState>
+                  <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                    <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+                  </scg:Dictionary>
+                </sap:WorkflowViewStateService.ViewState>
+                <Assign DisplayName="Mark Valid" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_2">
+                  <Assign.To>
+                    <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
+                  </Assign.To>
+                  <Assign.Value>
+                    <InArgument x:TypeArguments="x:Boolean">[True]</InArgument>
+                  </Assign.Value>
+                  <sap:WorkflowViewStateService.ViewState>
+                    <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                      <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+                    </scg:Dictionary>
+                  </sap:WorkflowViewStateService.ViewState>
+                </Assign>
+              </Sequence>
             </If.Then>
             <If.Else>
-                <Sequence>
-                    <Assign DisplayName="Propagate HTTP ErrorCode">
-                        <Assign.To><OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument></Assign.To>
-                        <Assign.Value><InArgument x:TypeArguments="x:String">[If(String.IsNullOrEmpty(errCode), &quot;HTTP_&quot; &amp; status.ToString(), errCode)]</InArgument></Assign.Value>
-                    </Assign>
-                </Sequence>
+              <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_2">
+                <sap:WorkflowViewStateService.ViewState>
+                  <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                    <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+                  </scg:Dictionary>
+                </sap:WorkflowViewStateService.ViewState>
+                <Assign DisplayName="Set IDENTITY_MISMATCH" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_3">
+                  <Assign.To>
+                    <OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument>
+                  </Assign.To>
+                  <Assign.Value>
+                    <InArgument x:TypeArguments="x:String">IDENTITY_MISMATCH</InArgument>
+                  </Assign.Value>
+                  <sap:WorkflowViewStateService.ViewState>
+                    <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                      <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+                    </scg:Dictionary>
+                  </sap:WorkflowViewStateService.ViewState>
+                </Assign>
+              </Sequence>
             </If.Else>
-        </If>
-    </Sequence>
+          </If>
+        </Sequence>
+      </If.Then>
+      <If.Else>
+        <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_4">
+          <sap:WorkflowViewStateService.ViewState>
+            <scg:Dictionary x:TypeArguments="x:String, x:Object">
+              <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+            </scg:Dictionary>
+          </sap:WorkflowViewStateService.ViewState>
+          <Assign DisplayName="Propagate HTTP ErrorCode" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_4">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:String">[If(String.IsNullOrEmpty(errCode), "HTTP_" &amp; status.ToString(), errCode)]</InArgument>
+            </Assign.Value>
+            <sap:WorkflowViewStateService.ViewState>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+              </scg:Dictionary>
+            </sap:WorkflowViewStateService.ViewState>
+          </Assign>
+        </Sequence>
+      </If.Else>
+    </If>
+  </Sequence>
 </Activity>

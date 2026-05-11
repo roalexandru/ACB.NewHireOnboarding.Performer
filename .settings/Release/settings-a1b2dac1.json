@@ -45,5 +45,17 @@
   "UiPath.UIAutomationNext.Activities.SAPLogon.SAPLogonDelayBetweenRetries": "0.5",
   "UiPath.UIAutomationNext.Activities.Logging.TargetSearchLogLevel": "Off",
   "UiPath.UIAutomationNext.Activities.Logging.TargetSearchPerformanceLogLevel": "Off",
-  "UiPath.UIAutomationNext.Activities.Logging.AuditLogLevel": "Trace"
+  "UiPath.UIAutomationNext.Activities.Logging.AuditLogLevel": "Trace",
+  "UiPath.UIAutomationNext.Activities.Generic.UIATraceRetention": "7",
+  "UiPath.UIAutomationNext.Activities.SAP.SAPEnforceHardTimeout": "False",
+  "UiPath.UIAutomationNext.Activities.SAP.SAPAdditionalScaling": "True",
+  "UiPath.UIAutomationNext.Activities.SAP.SAPMonitoring": "False",
+  "UiPath.UIAutomationNext.Activities.SAP.SAPLogonRetries": "50",
+  "UiPath.UIAutomationNext.Activities.SAP.SAPLogonDelayBetweenRetries": "0.5",
+  "UiPath.UIAutomationNext.Activities.UITask.UITaskTraceLevel": "Html",
+  "UiPath.UIAutomationNext.Activities.UITask.UITaskTraceAttachMode": "OnFailure",
+  "UiPath.UIAutomationNext.Activities.UITask.UITaskTraceRetention": "7",
+  "UiPath.UIAutomationNext.Activities.SemanticActivities.ExtractUIDataAgentType": "GeminiFlash25",
+  "UiPath.UIAutomationNext.Activities.SemanticActivities.ExtractUIDataIsDOMEnabled": "True",
+  "UiPath.UIAutomationNext.Activities.Logging.EnableActivityTracing": "False"
 }
