@@ -1,0 +1,30 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="BR05_PostingOrder" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="out_Order" Type="OutArgument(scg:IList(x:String))" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>System.Collections.Generic</x:String><x:String>UiPath.Core.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="BR-05 Posting Order">
+        <Assign DisplayName="Return Canonical Order">
+            <Assign.To><OutArgument x:TypeArguments="scg:IList(x:String)">[out_Order]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="scg:IList(x:String)">[New List(Of String) From {"medical","dental","vision","basicLife","voluntaryLife","ad_and_d","std","ltd","fsaHealth","fsaDependent","hsa","commuter","retirement"}]</InArgument></Assign.Value>
+        </Assign>
+    </Sequence>
+</Activity>

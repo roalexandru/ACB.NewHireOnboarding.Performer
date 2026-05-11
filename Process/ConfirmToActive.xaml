@@ -1,0 +1,83 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="ConfirmToActive" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:web="clr-namespace:UiPath.Web.Activities;assembly=UiPath.Web.Activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
+        <x:Property Name="in_ApiKey" Type="InArgument(x:String)" />
+        <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
+        <x:Property Name="out_ConfirmationNumber" Type="OutArgument(x:String)" />
+        <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
+        <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
+        <x:Property Name="out_Detail" Type="OutArgument(x:String)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>Newtonsoft.Json.Linq</x:String><x:String>UiPath.Core.Activities</x:String><x:String>UiPath.Web.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>Newtonsoft.Json</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference><AssemblyReference>UiPath.Web.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="C-10 Confirm to Active">
+        <Sequence.Variables>
+            <Variable x:TypeArguments="x:Int32" Name="status" />
+            <Variable x:TypeArguments="x:String" Name="body" />
+            <Variable x:TypeArguments="x:String" Name="errCode" />
+            <Variable x:TypeArguments="njl:JObject" Name="confirm" />
+        </Sequence.Variables>
+        <ui:InvokeWorkflowFile DisplayName="POST /api/onboarding/pending/{id}/approve" WorkflowFileName="Framework\HttpPost.xaml">
+            <ui:InvokeWorkflowFile.Arguments>
+                <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_BaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_ResourcePath">[&quot;/api/onboarding/pending/&quot; &amp; in_EmployeeId &amp; &quot;/approve&quot;]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[in_ApiKey]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[in_EmployeeId]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_JsonBody">{}</InArgument>
+                <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[status]</OutArgument>
+                <OutArgument x:TypeArguments="x:String" x:Key="out_Body">[body]</OutArgument>
+                <OutArgument x:TypeArguments="x:String" x:Key="out_ErrorCode">[errCode]</OutArgument>
+            </ui:InvokeWorkflowFile.Arguments>
+        </ui:InvokeWorkflowFile>
+        <If DisplayName="If 2xx" Condition="[status &gt;= 200 AndAlso status &lt; 300]">
+            <If.Then>
+                <Sequence>
+                    <ui:DeserializeJson x:TypeArguments="njl:JObject" DisplayName="Parse Confirmation" JsonString="[body]" JsonObject="[confirm]" />
+                    <Assign DisplayName="Extract confirmationNumber">
+                        <Assign.To><OutArgument x:TypeArguments="x:String">[out_ConfirmationNumber]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:String">[If(confirm IsNot Nothing AndAlso confirm(&quot;confirmationNumber&quot;) IsNot Nothing, confirm(&quot;confirmationNumber&quot;).ToString(), String.Empty)]</InArgument></Assign.Value>
+                    </Assign>
+                    <Assign DisplayName="Valid">
+                        <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+                    </Assign>
+                    <ui:LogMessage DisplayName="Log Confirm" Level="Info" Message="[&quot;C-10: Confirmed Active confirmationNumber=&quot; &amp; out_ConfirmationNumber]" />
+                </Sequence>
+            </If.Then>
+            <If.Else>
+                <Sequence>
+                    <Assign DisplayName="Invalid">
+                        <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:Boolean">[False]</InArgument></Assign.Value>
+                    </Assign>
+                    <Assign DisplayName="Set Code">
+                        <Assign.To><OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:String">CONFIRM_REJECTED</InArgument></Assign.Value>
+                    </Assign>
+                    <Assign DisplayName="Set Detail">
+                        <Assign.To><OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:String">[&quot;POST approve returned &quot; &amp; status.ToString() &amp; &quot; body=&quot; &amp; If(body, &quot;&quot;)]</InArgument></Assign.Value>
+                    </Assign>
+                </Sequence>
+            </If.Else>
+        </If>
+    </Sequence>
+</Activity>

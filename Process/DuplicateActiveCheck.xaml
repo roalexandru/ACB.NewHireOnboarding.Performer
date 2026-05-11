@@ -1,0 +1,69 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="DuplicateActiveCheck" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:web="clr-namespace:UiPath.Web.Activities;assembly=UiPath.Web.Activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
+        <x:Property Name="in_ApiKey" Type="InArgument(x:String)" />
+        <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
+        <x:Property Name="in_PlanYear" Type="InArgument(x:Int32)" />
+        <x:Property Name="out_IsDuplicate" Type="OutArgument(x:Boolean)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>Newtonsoft.Json.Linq</x:String><x:String>UiPath.Core.Activities</x:String><x:String>UiPath.Web.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>Newtonsoft.Json</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference><AssemblyReference>UiPath.Web.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="C-06 Duplicate-Active Check">
+        <Sequence.Variables>
+            <Variable x:TypeArguments="x:Int32" Name="status" />
+            <Variable x:TypeArguments="x:String" Name="body" />
+            <Variable x:TypeArguments="x:String" Name="errCode" />
+            <Variable x:TypeArguments="njl:JObject" Name="current" />
+        </Sequence.Variables>
+        <ui:InvokeWorkflowFile DisplayName="GET /api/enrollments/current" WorkflowFileName="Framework\HttpGet.xaml">
+            <ui:InvokeWorkflowFile.Arguments>
+                <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_BaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_ResourcePath">/api/enrollments/current</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[in_ApiKey]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[in_EmployeeId]</InArgument>
+                <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[status]</OutArgument>
+                <OutArgument x:TypeArguments="x:String" x:Key="out_Body">[body]</OutArgument>
+                <OutArgument x:TypeArguments="x:String" x:Key="out_ErrorCode">[errCode]</OutArgument>
+            </ui:InvokeWorkflowFile.Arguments>
+        </ui:InvokeWorkflowFile>
+        <If DisplayName="If 200 and body not empty" Condition="[status = 200 AndAlso Not String.IsNullOrWhiteSpace(body) AndAlso Not body.Trim().Equals(&quot;null&quot;)]">
+            <If.Then>
+                <Sequence>
+                    <ui:DeserializeJson x:TypeArguments="njl:JObject" DisplayName="Parse Current" JsonString="[body]" JsonObject="[current]" />
+                    <ui:InvokeWorkflowFile DisplayName="BR-11 Idempotency" WorkflowFileName="Rules\BR11_Idempotency.xaml">
+                        <ui:InvokeWorkflowFile.Arguments>
+                            <InArgument x:TypeArguments="njl:JObject" x:Key="in_CurrentEnrollment">[current]</InArgument>
+                            <InArgument x:TypeArguments="x:Int32" x:Key="in_PlanYear">[in_PlanYear]</InArgument>
+                            <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsDuplicate">[out_IsDuplicate]</OutArgument>
+                        </ui:InvokeWorkflowFile.Arguments>
+                    </ui:InvokeWorkflowFile>
+                    <If DisplayName="If Duplicate Log" Condition="[out_IsDuplicate]">
+                        <If.Then>
+                            <Sequence>
+                                <ui:LogMessage DisplayName="Log Duplicate Active" Level="Info" Message="[&quot;C-06: Active enrollment already exists for &quot; &amp; in_EmployeeId &amp; &quot; PY=&quot; &amp; in_PlanYear.ToString() &amp; &quot; -- SUCCESS_NO_OP&quot;]" />
+                            </Sequence>
+                        </If.Then>
+                    </If>
+                </Sequence>
+            </If.Then>
+        </If>
+    </Sequence>
+</Activity>

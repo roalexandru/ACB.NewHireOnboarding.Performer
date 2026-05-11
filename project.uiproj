@@ -1,0 +1,6 @@
+{
+  "Name": "ACB.NewHireOnboarding.Performer",
+  "ProjectType": "Process",
+  "Description": "Consumer (REFramework / Windows target) for new-hire benefits onboarding (PDD ACB-BEN-PDD-0007).",
+  "MainFile": "Main.xaml"
+}

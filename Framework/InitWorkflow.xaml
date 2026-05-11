@@ -1,0 +1,72 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="InitWorkflow" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:s="clr-namespace:System;assembly=System.Private.CoreLib"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ss="clr-namespace:System.Security;assembly=System.Private.CoreLib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="out_BaseUrl" Type="OutArgument(x:String)" />
+        <x:Property Name="out_ApiKey" Type="OutArgument(x:String)" />
+        <x:Property Name="out_PostingOrder" Type="OutArgument(x:String)" />
+        <x:Property Name="out_IRSLimitsJson" Type="OutArgument(x:String)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String>
+            <x:String>System</x:String>
+            <x:String>System.Security</x:String>
+            <x:String>System.Net</x:String>
+            <x:String>UiPath.Core.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference>
+            <AssemblyReference>System</AssemblyReference>
+            <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+            <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="Init">
+        <Sequence.Variables>
+            <Variable x:TypeArguments="x:Object" Name="baseUrlObj" />
+            <Variable x:TypeArguments="x:String" Name="apiKeyUser" />
+            <Variable x:TypeArguments="ss:SecureString" Name="apiKeyPwd" />
+            <Variable x:TypeArguments="x:Object" Name="postingOrderObj" />
+            <Variable x:TypeArguments="x:Object" Name="irsLimitsObj" />
+        </Sequence.Variables>
+        <ui:LogMessage DisplayName="Log Init Start" Level="Info" Message="Performer Init: loading assets" />
+        <ui:GetRobotAsset DisplayName="C-02a Get BaseUrl" AssetName="ACB.BenefitConnect.BaseUrl" CacheStrategy="None">
+            <ui:GetRobotAsset.Value><OutArgument x:TypeArguments="x:Object">[baseUrlObj]</OutArgument></ui:GetRobotAsset.Value>
+        </ui:GetRobotAsset>
+        <Assign DisplayName="Assign BaseUrl">
+            <Assign.To><OutArgument x:TypeArguments="x:String">[out_BaseUrl]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:String">[If(baseUrlObj IsNot Nothing, baseUrlObj.ToString(), &quot;&quot;)]</InArgument></Assign.Value>
+        </Assign>
+        <ui:GetRobotCredential DisplayName="C-02b Get API Key" AssetName="ACB.BenefitConnect.ApiKey" Username="[apiKeyUser]" Password="[apiKeyPwd]" />
+        <Assign DisplayName="Decode API Key">
+            <Assign.To><OutArgument x:TypeArguments="x:String">[out_ApiKey]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:String">[New System.Net.NetworkCredential(String.Empty, apiKeyPwd).Password]</InArgument></Assign.Value>
+        </Assign>
+        <ui:GetRobotAsset DisplayName="Get PostingOrder" AssetName="ACB.NewHireOnboarding.PostingOrder" CacheStrategy="None">
+            <ui:GetRobotAsset.Value><OutArgument x:TypeArguments="x:Object">[postingOrderObj]</OutArgument></ui:GetRobotAsset.Value>
+        </ui:GetRobotAsset>
+        <Assign DisplayName="Assign PostingOrder">
+            <Assign.To><OutArgument x:TypeArguments="x:String">[out_PostingOrder]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:String">[If(postingOrderObj IsNot Nothing, postingOrderObj.ToString(), &quot;medical,dental,vision,basicLife,voluntaryLife,std,ltd,ad_and_d,fsaHealth,fsaDependent,hsa,commuterTransit,commuterParking,retirement&quot;)]</InArgument></Assign.Value>
+        </Assign>
+        <ui:GetRobotAsset DisplayName="Get IRS Limits" AssetName="ACB.NewHireOnboarding.IRSLimits.2026" CacheStrategy="None">
+            <ui:GetRobotAsset.Value><OutArgument x:TypeArguments="x:Object">[irsLimitsObj]</OutArgument></ui:GetRobotAsset.Value>
+        </ui:GetRobotAsset>
+        <Assign DisplayName="Assign IRS Limits">
+            <Assign.To><OutArgument x:TypeArguments="x:String">[out_IRSLimitsJson]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:String">[If(irsLimitsObj IsNot Nothing, irsLimitsObj.ToString(), &quot;{&quot;&quot;fsaHealth&quot;&quot;:3300,&quot;&quot;fsaDcSingle&quot;&quot;:5000,&quot;&quot;fsaDcMfs&quot;&quot;:2500,&quot;&quot;hsaSelf&quot;&quot;:4300,&quot;&quot;hsaFamily&quot;&quot;:8550,&quot;&quot;commuterTransit&quot;&quot;:325,&quot;&quot;commuterParking&quot;&quot;:325,&quot;&quot;k401Deferral&quot;&quot;:23500,&quot;&quot;k401Catchup&quot;&quot;:7500}&quot;)]</InArgument></Assign.Value>
+        </Assign>
+        <ui:LogMessage DisplayName="Log Init Done" Level="Info" Message="Init complete: BaseUrl + ApiKey + PostingOrder + IRSLimits loaded" />
+    </Sequence>
+</Activity>

@@ -1,0 +1,55 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="BR07_HSAvsHDHP" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="in_HsaAmount" Type="InArgument(x:Decimal)" />
+        <x:Property Name="in_MedicalPlanType" Type="InArgument(x:String)" />
+        <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
+        <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
+        <x:Property Name="out_Detail" Type="OutArgument(x:String)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>UiPath.Core.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="BR-07 HSA vs HDHP">
+        <If DisplayName="HSA > 0 AND not HDHP?" Condition="[in_HsaAmount &gt; 0D AndAlso Not String.Equals(in_MedicalPlanType, &quot;hdhp&quot;, StringComparison.OrdinalIgnoreCase)]">
+            <If.Then>
+                <Sequence>
+                    <Assign DisplayName="Invalid">
+                        <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:Boolean">[False]</InArgument></Assign.Value>
+                    </Assign>
+                    <Assign DisplayName="Set Code">
+                        <Assign.To><OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:String">BR07_HSA_NON_HDHP</InArgument></Assign.Value>
+                    </Assign>
+                    <Assign DisplayName="Set Detail">
+                        <Assign.To><OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:String">[&quot;HSA contribution $&quot; &amp; in_HsaAmount.ToString() &amp; &quot; requires HDHP medical plan&quot;]</InArgument></Assign.Value>
+                    </Assign>
+                </Sequence>
+            </If.Then>
+            <If.Else>
+                <Sequence>
+                    <Assign DisplayName="Valid">
+                        <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+                    </Assign>
+                </Sequence>
+            </If.Else>
+        </If>
+    </Sequence>
+</Activity>

@@ -1,0 +1,119 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="BR08_DCFSAEligibleDependent" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
+ xmlns:s="clr-namespace:System;assembly=System.Private.CoreLib"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="in_DcFsaAmount" Type="InArgument(x:Decimal)" />
+        <x:Property Name="in_PlanYear" Type="InArgument(x:Int32)" />
+        <x:Property Name="in_Dependents" Type="InArgument(njl:JArray)" />
+        <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
+        <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
+        <x:Property Name="out_Detail" Type="OutArgument(x:String)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>System.Linq</x:String><x:String>Newtonsoft.Json.Linq</x:String><x:String>UiPath.Core.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Linq</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>Newtonsoft.Json</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="BR-08 DCFSA Eligible Dependent">
+        <Sequence.Variables>
+            <Variable x:TypeArguments="s:DateTime" Name="threshold" />
+            <Variable x:TypeArguments="x:Boolean" Name="hasEligible" />
+        </Sequence.Variables>
+        <If DisplayName="DCFSA > 0?" Condition="[in_DcFsaAmount &gt; 0D]">
+            <If.Then>
+                <Sequence>
+                    <Assign DisplayName="Compute Threshold (12/31/year)">
+                        <Assign.To><OutArgument x:TypeArguments="s:DateTime">[threshold]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="s:DateTime">[New DateTime(in_PlanYear, 12, 31)]</InArgument></Assign.Value>
+                    </Assign>
+                    <If DisplayName="Have dependents?" Condition="[in_Dependents IsNot Nothing AndAlso in_Dependents.Count &gt; 0]">
+                        <If.Then>
+                            <Sequence>
+                                <ForEach x:TypeArguments="njl:JToken" DisplayName="Scan dependents" Values="[in_Dependents]">
+                                    <ActivityAction x:TypeArguments="njl:JToken">
+                                        <ActivityAction.Argument>
+                                            <DelegateInArgument x:TypeArguments="njl:JToken" Name="dep" />
+                                        </ActivityAction.Argument>
+                                        <Sequence>
+                                            <If DisplayName="Disabled?" Condition="[dep(&quot;disabled&quot;) IsNot Nothing AndAlso CBool(dep(&quot;disabled&quot;))]">
+                                                <If.Then>
+                                                    <Sequence>
+                                                        <Assign DisplayName="Set hasEligible">
+                                                            <Assign.To><OutArgument x:TypeArguments="x:Boolean">[hasEligible]</OutArgument></Assign.To>
+                                                            <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+                                                        </Assign>
+                                                    </Sequence>
+                                                </If.Then>
+                                                <If.Else>
+                                                    <Sequence>
+                                                        <If DisplayName="Under 13?" Condition="[dep(&quot;dateOfBirth&quot;) IsNot Nothing AndAlso threshold.Subtract(DateTime.Parse(dep(&quot;dateOfBirth&quot;).ToString())).TotalDays / 365D &lt; 13D]">
+                                                            <If.Then>
+                                                                <Sequence>
+                                                                    <Assign DisplayName="Set hasEligible">
+                                                                        <Assign.To><OutArgument x:TypeArguments="x:Boolean">[hasEligible]</OutArgument></Assign.To>
+                                                                        <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+                                                                    </Assign>
+                                                                </Sequence>
+                                                            </If.Then>
+                                                        </If>
+                                                    </Sequence>
+                                                </If.Else>
+                                            </If>
+                                        </Sequence>
+                                    </ActivityAction>
+                                </ForEach>
+                            </Sequence>
+                        </If.Then>
+                    </If>
+                    <If DisplayName="Eligible?" Condition="[hasEligible]">
+                        <If.Then>
+                            <Sequence>
+                                <Assign DisplayName="Valid">
+                                    <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+                                </Assign>
+                            </Sequence>
+                        </If.Then>
+                        <If.Else>
+                            <Sequence>
+                                <Assign DisplayName="Invalid">
+                                    <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:Boolean">[False]</InArgument></Assign.Value>
+                                </Assign>
+                                <Assign DisplayName="Set Code">
+                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:String">BR08_DCFSA_NO_ELIGIBLE_DEPENDENT</InArgument></Assign.Value>
+                                </Assign>
+                                <Assign DisplayName="Set Detail">
+                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:String">DCFSA elected without an eligible dependent under 13 or disabled</InArgument></Assign.Value>
+                                </Assign>
+                            </Sequence>
+                        </If.Else>
+                    </If>
+                </Sequence>
+            </If.Then>
+            <If.Else>
+                <Sequence>
+                    <Assign DisplayName="N/A -> Valid">
+                        <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+                    </Assign>
+                </Sequence>
+            </If.Else>
+        </If>
+    </Sequence>
+</Activity>

@@ -1,0 +1,372 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="Process" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" xmlns:s="clr-namespace:System;assembly=System.Private.CoreLib" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:ui="http://schemas.uipath.com/workflow/activities" xmlns:upc="clr-namespace:UiPath.Core;assembly=UiPath.System.Activities" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <x:Members>
+    <x:Property sap2010:Annotation.AnnotationText="Transaction item to be processed." Name="in_TransactionItem" Type="InArgument(ui:QueueItem)" />
+    <x:Property sap2010:Annotation.AnnotationText="Dictionary structure to store configuration data of the process (settings, constants and assets)." Name="in_Config" Type="InArgument(scg:Dictionary(x:String, x:Object))" />
+  </x:Members>
+  <VisualBasic.Settings>
+    <x:Null />
+  </VisualBasic.Settings>
+  <sap2010:WorkflowViewState.IdRef>ProcessTransaction_1</sap2010:WorkflowViewState.IdRef>
+  <TextExpression.NamespacesForImplementation>
+    <scg:List x:TypeArguments="x:String">
+      <x:String>Microsoft.VisualBasic</x:String>
+      <x:String>System</x:String>
+      <x:String>System.Activities</x:String>
+      <x:String>System.Activities.Statements</x:String>
+      <x:String>System.Collections</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Collections.ObjectModel</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+      <x:String>UiPath.Core.Activities</x:String>
+      <x:String>UiPath.Web.Activities</x:String>
+    </scg:List>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <scg:List x:TypeArguments="AssemblyReference">
+      <AssemblyReference>Microsoft.VisualBasic</AssemblyReference>
+      <AssemblyReference>mscorlib</AssemblyReference>
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Activities</AssemblyReference>
+      <AssemblyReference>System.Collections</AssemblyReference>
+      <AssemblyReference>System.Linq</AssemblyReference>
+      <AssemblyReference>System.ObjectModel</AssemblyReference>
+      <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.Web.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.Workflow</AssemblyReference>
+    </scg:List>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="Process Transaction" sap2010:WorkflowViewState.IdRef="Sequence_Process">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:String" Name="baseUrl" />
+      <Variable x:TypeArguments="x:String" Name="apiKey" />
+      <Variable x:TypeArguments="x:String" Name="postingOrder" />
+      <Variable x:TypeArguments="x:String" Name="irsLimits" />
+      <Variable x:TypeArguments="x:String" Name="transactionId" />
+      <Variable x:TypeArguments="x:String" Name="dispatcherPollId" />
+      <Variable x:TypeArguments="x:String" Name="employeeId" />
+      <Variable x:TypeArguments="x:String" Name="username" />
+      <Variable x:TypeArguments="x:String" Name="hireDate" />
+      <Variable x:TypeArguments="x:Int32" Name="planYear" />
+      <Variable x:TypeArguments="x:String" Name="intakeFormRef" />
+      <Variable x:TypeArguments="x:String" Name="electionsJson" />
+      <Variable x:TypeArguments="njl:JObject" Name="elections" />
+      <Variable x:TypeArguments="x:String" Name="medicalTier" />
+      <Variable x:TypeArguments="x:Boolean" Name="hasLifeLine" />
+      <Variable x:TypeArguments="s:DateTime" Name="startedAt" />
+      <Variable x:TypeArguments="x:String" Default="&quot;PENDING&quot;" Name="outcomeCode" />
+      <Variable x:TypeArguments="x:String" Name="enrollmentId" />
+      <Variable x:TypeArguments="x:String" Name="confirmationNumber" />
+      <Variable x:TypeArguments="x:Int32" Name="linesPosted" />
+      <Variable x:TypeArguments="x:String" Name="exceptionCode" />
+      <Variable x:TypeArguments="x:String" Name="exceptionDetail" />
+      <Variable x:TypeArguments="x:Boolean" Name="stepResult" />
+      <Variable x:TypeArguments="x:Boolean" Name="isDup" />
+    </Sequence.Variables>
+    <ui:LogMessage DisplayName="Log Process Start" Level="Info" Message="[&quot;Process: TransactionItem Reference=&quot; &amp; in_TransactionItem.Reference]" />
+    <Assign DisplayName="StartedAt">
+      <Assign.To><OutArgument x:TypeArguments="s:DateTime">[startedAt]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="s:DateTime">[DateTime.UtcNow]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Extract TransactionId">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[transactionId]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent(&quot;TransactionId&quot;).ToString()]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Extract DispatcherPollId">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[dispatcherPollId]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent(&quot;DispatcherPollId&quot;).ToString()]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Extract EmployeeId">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[employeeId]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent(&quot;EmployeeId&quot;).ToString()]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Extract Username">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[username]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent(&quot;Username&quot;).ToString()]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Extract HireDate">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[hireDate]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent(&quot;HireDate&quot;).ToString()]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Extract PlanYear">
+      <Assign.To><OutArgument x:TypeArguments="x:Int32">[planYear]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:Int32">[CInt(in_TransactionItem.SpecificContent(&quot;PlanYear&quot;))]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Extract IntakeFormRef">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[intakeFormRef]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent(&quot;IntakeFormRef&quot;).ToString()]</InArgument></Assign.Value>
+    </Assign>
+    <Assign DisplayName="Extract ElectionsJson">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[electionsJson]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent(&quot;ElectionsJson&quot;).ToString()]</InArgument></Assign.Value>
+    </Assign>
+    <ui:DeserializeJson x:TypeArguments="njl:JObject" DisplayName="Parse Elections" JsonString="[electionsJson]" JsonObject="[elections]" />
+    <Assign DisplayName="Default medicalTier = EE">
+      <Assign.To><OutArgument x:TypeArguments="x:String">[medicalTier]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:String">EE</InArgument></Assign.Value>
+    </Assign>
+    <If DisplayName="Have medical election?" Condition="[elections IsNot Nothing AndAlso elections.SelectToken(&quot;medical.tier&quot;) IsNot Nothing]">
+      <If.Then>
+        <Sequence>
+          <Assign DisplayName="Extract medicalTier">
+            <Assign.To><OutArgument x:TypeArguments="x:String">[medicalTier]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:String">[elections.SelectToken(&quot;medical.tier&quot;).ToString()]</InArgument></Assign.Value>
+          </Assign>
+        </Sequence>
+      </If.Then>
+    </If>
+    <Assign DisplayName="Default hasLifeLine = False">
+      <Assign.To><OutArgument x:TypeArguments="x:Boolean">[hasLifeLine]</OutArgument></Assign.To>
+      <Assign.Value><InArgument x:TypeArguments="x:Boolean">[False]</InArgument></Assign.Value>
+    </Assign>
+    <If DisplayName="Have life election?" Condition="[elections IsNot Nothing AndAlso (elections.SelectToken(&quot;basicLife&quot;) IsNot Nothing OrElse elections.SelectToken(&quot;voluntaryLife&quot;) IsNot Nothing)]">
+      <If.Then>
+        <Sequence>
+          <Assign DisplayName="Set hasLifeLine">
+            <Assign.To><OutArgument x:TypeArguments="x:Boolean">[hasLifeLine]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+          </Assign>
+        </Sequence>
+      </If.Then>
+    </If>
+    <ui:InvokeWorkflowFile DisplayName="C-02 InitWorkflow (load assets/secret)" WorkflowFileName="Framework\InitWorkflow.xaml">
+      <ui:InvokeWorkflowFile.Arguments>
+        <OutArgument x:TypeArguments="x:String" x:Key="out_BaseUrl">[baseUrl]</OutArgument>
+        <OutArgument x:TypeArguments="x:String" x:Key="out_ApiKey">[apiKey]</OutArgument>
+        <OutArgument x:TypeArguments="x:String" x:Key="out_PostingOrder">[postingOrder]</OutArgument>
+        <OutArgument x:TypeArguments="x:String" x:Key="out_IRSLimitsJson">[irsLimits]</OutArgument>
+      </ui:InvokeWorkflowFile.Arguments>
+    </ui:InvokeWorkflowFile>
+    <ui:InvokeWorkflowFile DisplayName="C-03 IdentityAssertion" WorkflowFileName="Process\IdentityAssertion.xaml">
+      <ui:InvokeWorkflowFile.Arguments>
+        <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
+        <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
+        <OutArgument x:TypeArguments="x:String" x:Key="out_ExceptionCode">[exceptionCode]</OutArgument>
+      </ui:InvokeWorkflowFile.Arguments>
+    </ui:InvokeWorkflowFile>
+    <If DisplayName="If C-03 OK" Condition="[stepResult]">
+      <If.Then>
+        <Sequence>
+          <ui:InvokeWorkflowFile DisplayName="C-04 DependentPreCheck" WorkflowFileName="Process\DependentPreCheck.xaml">
+            <ui:InvokeWorkflowFile.Arguments>
+              <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+              <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
+              <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
+              <InArgument x:TypeArguments="x:String" x:Key="in_MedicalTier">[medicalTier]</InArgument>
+              <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
+              <OutArgument x:TypeArguments="x:String" x:Key="out_ExceptionCode">[exceptionCode]</OutArgument>
+              <OutArgument x:TypeArguments="x:String" x:Key="out_Detail">[exceptionDetail]</OutArgument>
+            </ui:InvokeWorkflowFile.Arguments>
+          </ui:InvokeWorkflowFile>
+          <If DisplayName="If C-04 OK" Condition="[stepResult]">
+            <If.Then>
+              <Sequence>
+                <ui:InvokeWorkflowFile DisplayName="C-05 BeneficiaryPreCheck" WorkflowFileName="Process\BeneficiaryPreCheck.xaml">
+                  <ui:InvokeWorkflowFile.Arguments>
+                    <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+                    <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
+                    <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
+                    <InArgument x:TypeArguments="x:Boolean" x:Key="in_HasLifeLine">[hasLifeLine]</InArgument>
+                    <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
+                    <OutArgument x:TypeArguments="x:String" x:Key="out_ExceptionCode">[exceptionCode]</OutArgument>
+                    <OutArgument x:TypeArguments="x:String" x:Key="out_Detail">[exceptionDetail]</OutArgument>
+                  </ui:InvokeWorkflowFile.Arguments>
+                </ui:InvokeWorkflowFile>
+                <If DisplayName="If C-05 OK" Condition="[stepResult]">
+                  <If.Then>
+                    <Sequence>
+                      <ui:InvokeWorkflowFile DisplayName="C-06 DuplicateActiveCheck" WorkflowFileName="Process\DuplicateActiveCheck.xaml">
+                        <ui:InvokeWorkflowFile.Arguments>
+                          <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+                          <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
+                          <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
+                          <InArgument x:TypeArguments="x:Int32" x:Key="in_PlanYear">[planYear]</InArgument>
+                          <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsDuplicate">[isDup]</OutArgument>
+                        </ui:InvokeWorkflowFile.Arguments>
+                      </ui:InvokeWorkflowFile>
+                      <If DisplayName="If Duplicate" Condition="[isDup]">
+                        <If.Then>
+                          <Sequence>
+                            <Assign DisplayName="Set SUCCESS_NO_OP">
+                              <Assign.To><OutArgument x:TypeArguments="x:String">[outcomeCode]</OutArgument></Assign.To>
+                              <Assign.Value><InArgument x:TypeArguments="x:String">SUCCESS_NO_OP</InArgument></Assign.Value>
+                            </Assign>
+                          </Sequence>
+                        </If.Then>
+                        <If.Else>
+                          <Sequence>
+                            <ui:InvokeWorkflowFile DisplayName="C-07 PostElectionLines" WorkflowFileName="Process\PostElectionLines.xaml">
+                              <ui:InvokeWorkflowFile.Arguments>
+                                <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+                                <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
+                                <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
+                                <InArgument x:TypeArguments="njl:JObject" x:Key="in_Elections">[elections]</InArgument>
+                                <OutArgument x:TypeArguments="x:Int32" x:Key="out_LinesPosted">[linesPosted]</OutArgument>
+                                <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
+                                <OutArgument x:TypeArguments="x:String" x:Key="out_ExceptionCode">[exceptionCode]</OutArgument>
+                                <OutArgument x:TypeArguments="x:String" x:Key="out_Detail">[exceptionDetail]</OutArgument>
+                              </ui:InvokeWorkflowFile.Arguments>
+                            </ui:InvokeWorkflowFile>
+                            <If DisplayName="If C-07 OK" Condition="[stepResult]">
+                              <If.Then>
+                                <Sequence>
+                                  <ui:InvokeWorkflowFile DisplayName="C-08 ReconcileDraft" WorkflowFileName="Process\ReconcileDraft.xaml">
+                                    <ui:InvokeWorkflowFile.Arguments>
+                                      <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+                                      <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
+                                      <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
+                                      <InArgument x:TypeArguments="x:Int32" x:Key="in_ExpectedLineCount">[linesPosted]</InArgument>
+                                      <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
+                                      <OutArgument x:TypeArguments="x:String" x:Key="out_ExceptionCode">[exceptionCode]</OutArgument>
+                                      <OutArgument x:TypeArguments="x:String" x:Key="out_Detail">[exceptionDetail]</OutArgument>
+                                    </ui:InvokeWorkflowFile.Arguments>
+                                  </ui:InvokeWorkflowFile>
+                                  <If DisplayName="If C-08 OK" Condition="[stepResult]">
+                                    <If.Then>
+                                      <Sequence>
+                                        <ui:InvokeWorkflowFile DisplayName="C-09 CreatePendingEnrollment" WorkflowFileName="Process\CreatePendingEnrollment.xaml">
+                                          <ui:InvokeWorkflowFile.Arguments>
+                                            <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+                                            <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
+                                            <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
+                                            <OutArgument x:TypeArguments="x:String" x:Key="out_EnrollmentId">[enrollmentId]</OutArgument>
+                                            <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
+                                            <OutArgument x:TypeArguments="x:String" x:Key="out_ExceptionCode">[exceptionCode]</OutArgument>
+                                            <OutArgument x:TypeArguments="x:String" x:Key="out_Detail">[exceptionDetail]</OutArgument>
+                                          </ui:InvokeWorkflowFile.Arguments>
+                                        </ui:InvokeWorkflowFile>
+                                        <If DisplayName="If C-09 OK" Condition="[stepResult]">
+                                          <If.Then>
+                                            <Sequence>
+                                              <ui:InvokeWorkflowFile DisplayName="C-10 ConfirmToActive" WorkflowFileName="Process\ConfirmToActive.xaml">
+                                                <ui:InvokeWorkflowFile.Arguments>
+                                                  <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[baseUrl]</InArgument>
+                                                  <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[apiKey]</InArgument>
+                                                  <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
+                                                  <OutArgument x:TypeArguments="x:String" x:Key="out_ConfirmationNumber">[confirmationNumber]</OutArgument>
+                                                  <OutArgument x:TypeArguments="x:Boolean" x:Key="out_IsValid">[stepResult]</OutArgument>
+                                                  <OutArgument x:TypeArguments="x:String" x:Key="out_ExceptionCode">[exceptionCode]</OutArgument>
+                                                  <OutArgument x:TypeArguments="x:String" x:Key="out_Detail">[exceptionDetail]</OutArgument>
+                                                </ui:InvokeWorkflowFile.Arguments>
+                                              </ui:InvokeWorkflowFile>
+                                              <If DisplayName="If C-10 OK" Condition="[stepResult]">
+                                                <If.Then>
+                                                  <Sequence>
+                                                    <Assign DisplayName="Set SUCCESS">
+                                                      <Assign.To><OutArgument x:TypeArguments="x:String">[outcomeCode]</OutArgument></Assign.To>
+                                                      <Assign.Value><InArgument x:TypeArguments="x:String">SUCCESS</InArgument></Assign.Value>
+                                                    </Assign>
+                                                  </Sequence>
+                                                </If.Then>
+                                                <If.Else>
+                                                  <Sequence>
+                                                    <Assign DisplayName="Set BUSINESS (C-10)">
+                                                      <Assign.To><OutArgument x:TypeArguments="x:String">[outcomeCode]</OutArgument></Assign.To>
+                                                      <Assign.Value><InArgument x:TypeArguments="x:String">BUSINESS_EXCEPTION</InArgument></Assign.Value>
+                                                    </Assign>
+                                                  </Sequence>
+                                                </If.Else>
+                                              </If>
+                                            </Sequence>
+                                          </If.Then>
+                                          <If.Else>
+                                            <Sequence>
+                                              <Assign DisplayName="Set BUSINESS (C-09)">
+                                                <Assign.To><OutArgument x:TypeArguments="x:String">[outcomeCode]</OutArgument></Assign.To>
+                                                <Assign.Value><InArgument x:TypeArguments="x:String">BUSINESS_EXCEPTION</InArgument></Assign.Value>
+                                              </Assign>
+                                            </Sequence>
+                                          </If.Else>
+                                        </If>
+                                      </Sequence>
+                                    </If.Then>
+                                    <If.Else>
+                                      <Sequence>
+                                        <Assign DisplayName="Set BUSINESS (C-08)">
+                                          <Assign.To><OutArgument x:TypeArguments="x:String">[outcomeCode]</OutArgument></Assign.To>
+                                          <Assign.Value><InArgument x:TypeArguments="x:String">BUSINESS_EXCEPTION</InArgument></Assign.Value>
+                                        </Assign>
+                                      </Sequence>
+                                    </If.Else>
+                                  </If>
+                                </Sequence>
+                              </If.Then>
+                              <If.Else>
+                                <Sequence>
+                                  <Assign DisplayName="Set BUSINESS (C-07)">
+                                    <Assign.To><OutArgument x:TypeArguments="x:String">[outcomeCode]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:String">BUSINESS_EXCEPTION</InArgument></Assign.Value>
+                                  </Assign>
+                                </Sequence>
+                              </If.Else>
+                            </If>
+                          </Sequence>
+                        </If.Else>
+                      </If>
+                    </Sequence>
+                  </If.Then>
+                  <If.Else>
+                    <Sequence>
+                      <Assign DisplayName="Set BUSINESS (C-05)">
+                        <Assign.To><OutArgument x:TypeArguments="x:String">[outcomeCode]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:String">BUSINESS_EXCEPTION</InArgument></Assign.Value>
+                      </Assign>
+                    </Sequence>
+                  </If.Else>
+                </If>
+              </Sequence>
+            </If.Then>
+            <If.Else>
+              <Sequence>
+                <Assign DisplayName="Set BUSINESS (C-04)">
+                  <Assign.To><OutArgument x:TypeArguments="x:String">[outcomeCode]</OutArgument></Assign.To>
+                  <Assign.Value><InArgument x:TypeArguments="x:String">BUSINESS_EXCEPTION</InArgument></Assign.Value>
+                </Assign>
+              </Sequence>
+            </If.Else>
+          </If>
+        </Sequence>
+      </If.Then>
+      <If.Else>
+        <Sequence>
+          <Assign DisplayName="Set BUSINESS (C-03)">
+            <Assign.To><OutArgument x:TypeArguments="x:String">[outcomeCode]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:String">BUSINESS_EXCEPTION</InArgument></Assign.Value>
+          </Assign>
+        </Sequence>
+      </If.Else>
+    </If>
+    <ui:InvokeWorkflowFile DisplayName="C-11 LogOutcome" WorkflowFileName="Process\LogOutcome.xaml">
+      <ui:InvokeWorkflowFile.Arguments>
+        <InArgument x:TypeArguments="x:String" x:Key="in_TransactionId">[transactionId]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_DispatcherPollId">[dispatcherPollId]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[employeeId]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_Username">[username]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_HireDate">[hireDate]</InArgument>
+        <InArgument x:TypeArguments="x:Int32" x:Key="in_PlanYear">[planYear]</InArgument>
+        <InArgument x:TypeArguments="s:DateTime" x:Key="in_StartedAt">[startedAt]</InArgument>
+        <InArgument x:TypeArguments="s:DateTime" x:Key="in_FinishedAt">[DateTime.UtcNow]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_OutcomeCode">[outcomeCode]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_EnrollmentId">[enrollmentId]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ConfirmationNumber">[confirmationNumber]</InArgument>
+        <InArgument x:TypeArguments="x:Int32" x:Key="in_LinesPosted">[linesPosted]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ExceptionCode">[exceptionCode]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_ExceptionDetail">[exceptionDetail]</InArgument>
+        <InArgument x:TypeArguments="x:String" x:Key="in_IntakeFormRef">[intakeFormRef]</InArgument>
+      </ui:InvokeWorkflowFile.Arguments>
+    </ui:InvokeWorkflowFile>
+    <If DisplayName="If Business Exception -- throw to REFramework" Condition="[String.Equals(outcomeCode, &quot;BUSINESS_EXCEPTION&quot;, StringComparison.OrdinalIgnoreCase)]">
+      <If.Then>
+        <Sequence>
+          <Throw DisplayName="Throw BusinessRuleException" Exception="[New UiPath.Core.BusinessRuleException(If(exceptionCode, &quot;BUSINESS_EXCEPTION&quot;) &amp; &quot;: &quot; &amp; If(exceptionDetail, &quot;&quot;))]" />
+        </Sequence>
+      </If.Then>
+    </If>
+    <ui:LogMessage DisplayName="Log Process End" Level="Info" Message="[&quot;Process: Finished outcome=&quot; &amp; outcomeCode &amp; &quot; for EmployeeId=&quot; &amp; employeeId]" />
+  </Sequence>
+</Activity>

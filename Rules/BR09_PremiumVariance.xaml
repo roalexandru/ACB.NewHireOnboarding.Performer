@@ -1,0 +1,56 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="BR09_PremiumVariance" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="in_IntakePremium" Type="InArgument(x:Decimal)" />
+        <x:Property Name="in_ServerPremium" Type="InArgument(x:Decimal)" />
+        <x:Property Name="out_VarianceWarning" Type="OutArgument(x:Boolean)" />
+        <x:Property Name="out_Detail" Type="OutArgument(x:String)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>UiPath.Core.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="BR-09 Premium Variance">
+        <Sequence.Variables>
+            <Variable x:TypeArguments="x:Decimal" Name="variance" />
+        </Sequence.Variables>
+        <If DisplayName="Have intake premium?" Condition="[in_IntakePremium &gt; 0D]">
+            <If.Then>
+                <Sequence>
+                    <Assign DisplayName="Compute variance %">
+                        <Assign.To><OutArgument x:TypeArguments="x:Decimal">[variance]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:Decimal">[Math.Abs(in_IntakePremium - in_ServerPremium) / in_IntakePremium * 100D]</InArgument></Assign.Value>
+                    </Assign>
+                    <If DisplayName="Variance &gt; 5%?" Condition="[variance &gt; 5D]">
+                        <If.Then>
+                            <Sequence>
+                                <Assign DisplayName="Flag Warning">
+                                    <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_VarianceWarning]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+                                </Assign>
+                                <Assign DisplayName="Set Detail">
+                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:String">[&quot;BR09_PREMIUM_VARIANCE intake=&quot; &amp; in_IntakePremium.ToString() &amp; &quot; server=&quot; &amp; in_ServerPremium.ToString() &amp; &quot; variance=&quot; &amp; variance.ToString(&quot;F2&quot;) &amp; &quot;%&quot;]</InArgument></Assign.Value>
+                                </Assign>
+                                <ui:LogMessage DisplayName="Log Warning" Level="Warn" Message="[out_Detail]" />
+                            </Sequence>
+                        </If.Then>
+                    </If>
+                </Sequence>
+            </If.Then>
+        </If>
+    </Sequence>
+</Activity>

@@ -1,0 +1,119 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="HttpGet" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:web="clr-namespace:UiPath.Web.Activities;assembly=UiPath.Web.Activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
+        <x:Property Name="in_ResourcePath" Type="InArgument(x:String)" />
+        <x:Property Name="in_ApiKey" Type="InArgument(x:String)" />
+        <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
+        <x:Property Name="out_StatusCode" Type="OutArgument(x:Int32)" />
+        <x:Property Name="out_Body" Type="OutArgument(x:String)" />
+        <x:Property Name="out_ErrorCode" Type="OutArgument(x:String)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String>
+            <x:String>System.Collections.Generic</x:String>
+            <x:String>System</x:String>
+            <x:String>System.Linq</x:String>
+            <x:String>UiPath.Core.Activities</x:String>
+            <x:String>UiPath.Web.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference>
+            <AssemblyReference>System</AssemblyReference>
+            <AssemblyReference>System.Linq</AssemblyReference>
+            <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+            <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+            <AssemblyReference>UiPath.Web.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="HTTP GET">
+        <Sequence.Variables>
+            <Variable x:TypeArguments="x:Int32" Name="statusCode" />
+            <Variable x:TypeArguments="x:String" Name="responseBody" />
+        </Sequence.Variables>
+        <web:HttpClient DisplayName="GET Endpoint"
+                        AcceptFormat="JSON"
+                        AuthenticationType="None"
+                        BodyFormat="application/json"
+                        EnableSSLVerification="True"
+                        EndPoint="[in_BaseUrl &amp; in_ResourcePath]"
+                        Method="GET"
+                        TimeoutMS="30000"
+                        ContinueOnError="True"
+                        Result="[responseBody]"
+                        StatusCode="[statusCode]">
+            <web:HttpClient.Headers>
+                <scg:Dictionary x:TypeArguments="x:String, InArgument(x:String)">
+                    <InArgument x:TypeArguments="x:String" x:Key="X-API-Key">[If(in_ApiKey, String.Empty)]</InArgument>
+                    <InArgument x:TypeArguments="x:String" x:Key="X-Employee-Id">[If(in_EmployeeId, String.Empty)]</InArgument>
+                </scg:Dictionary>
+            </web:HttpClient.Headers>
+        </web:HttpClient>
+        <Assign DisplayName="Output StatusCode">
+            <Assign.To><OutArgument x:TypeArguments="x:Int32">[out_StatusCode]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:Int32">[statusCode]</InArgument></Assign.Value>
+        </Assign>
+        <Assign DisplayName="Output Body">
+            <Assign.To><OutArgument x:TypeArguments="x:String">[out_Body]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:String">[responseBody]</InArgument></Assign.Value>
+        </Assign>
+        <If DisplayName="If 401" Condition="[statusCode = 401]">
+            <If.Then>
+                <Sequence>
+                    <Assign DisplayName="Set INVALID_API_KEY">
+                        <Assign.To><OutArgument x:TypeArguments="x:String">[out_ErrorCode]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:String">INVALID_API_KEY</InArgument></Assign.Value>
+                    </Assign>
+                </Sequence>
+            </If.Then>
+            <If.Else>
+                <Sequence>
+                    <If DisplayName="If 403" Condition="[statusCode = 403]">
+                        <If.Then>
+                            <Sequence>
+                                <Assign DisplayName="Set API_NOT_PUBLIC">
+                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_ErrorCode]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:String">API_NOT_PUBLIC</InArgument></Assign.Value>
+                                </Assign>
+                            </Sequence>
+                        </If.Then>
+                        <If.Else>
+                            <Sequence>
+                                <If DisplayName="If 5xx" Condition="[statusCode &gt;= 500 AndAlso statusCode &lt;= 599]">
+                                    <If.Then>
+                                        <Sequence>
+                                            <Assign DisplayName="Set HTTP_5XX">
+                                                <Assign.To><OutArgument x:TypeArguments="x:String">[out_ErrorCode]</OutArgument></Assign.To>
+                                                <Assign.Value><InArgument x:TypeArguments="x:String">HTTP_5XX</InArgument></Assign.Value>
+                                            </Assign>
+                                        </Sequence>
+                                    </If.Then>
+                                    <If.Else>
+                                        <Sequence>
+                                            <Assign DisplayName="Set Empty ErrorCode">
+                                                <Assign.To><OutArgument x:TypeArguments="x:String">[out_ErrorCode]</OutArgument></Assign.To>
+                                                <Assign.Value><InArgument x:TypeArguments="x:String">[String.Empty]</InArgument></Assign.Value>
+                                            </Assign>
+                                        </Sequence>
+                                    </If.Else>
+                                </If>
+                            </Sequence>
+                        </If.Else>
+                    </If>
+                </Sequence>
+            </If.Else>
+        </If>
+    </Sequence>
+</Activity>

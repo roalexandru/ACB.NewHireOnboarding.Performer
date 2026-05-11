@@ -1,0 +1,86 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="BR06_IRSLimits" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:web="clr-namespace:UiPath.Web.Activities;assembly=UiPath.Web.Activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="in_PlanType" Type="InArgument(x:String)" />
+        <x:Property Name="in_Amount" Type="InArgument(x:Decimal)" />
+        <x:Property Name="in_LimitsJson" Type="InArgument(x:String)" />
+        <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
+        <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
+        <x:Property Name="out_Detail" Type="OutArgument(x:String)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>Newtonsoft.Json.Linq</x:String><x:String>UiPath.Core.Activities</x:String><x:String>UiPath.Web.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>Newtonsoft.Json</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference><AssemblyReference>UiPath.Web.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="BR-06 IRS Limits">
+        <Sequence.Variables>
+            <Variable x:TypeArguments="njl:JObject" Name="limits" />
+            <Variable x:TypeArguments="x:Decimal" Name="ceiling" />
+            <Variable x:TypeArguments="x:String" Name="key" />
+        </Sequence.Variables>
+        <ui:DeserializeJson x:TypeArguments="njl:JObject" DisplayName="Parse Limits" JsonString="[in_LimitsJson]" JsonObject="[limits]" />
+        <Assign DisplayName="Map PlanType to Limit Key">
+            <Assign.To><OutArgument x:TypeArguments="x:String">[key]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:String">[If(in_PlanType = &quot;fsaHealth&quot;, &quot;fsaHealth&quot;, If(in_PlanType = &quot;fsaDependent&quot;, &quot;fsaDcSingle&quot;, If(in_PlanType = &quot;hsa&quot;, &quot;hsaSelf&quot;, If(in_PlanType = &quot;commuterTransit&quot;, &quot;commuterTransit&quot;, If(in_PlanType = &quot;commuterParking&quot;, &quot;commuterParking&quot;, If(in_PlanType = &quot;retirement&quot;, &quot;k401Deferral&quot;, &quot;&quot;))))))]</InArgument></Assign.Value>
+        </Assign>
+        <If DisplayName="Mapped key?" Condition="[Not String.IsNullOrEmpty(key) AndAlso limits IsNot Nothing AndAlso limits(key) IsNot Nothing]">
+            <If.Then>
+                <Sequence>
+                    <Assign DisplayName="Read Ceiling">
+                        <Assign.To><OutArgument x:TypeArguments="x:Decimal">[ceiling]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:Decimal">[CDec(limits(key))]</InArgument></Assign.Value>
+                    </Assign>
+                    <If DisplayName="Within ceiling?" Condition="[in_Amount &lt;= ceiling]">
+                        <If.Then>
+                            <Sequence>
+                                <Assign DisplayName="Valid">
+                                    <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+                                </Assign>
+                            </Sequence>
+                        </If.Then>
+                        <If.Else>
+                            <Sequence>
+                                <Assign DisplayName="Invalid">
+                                    <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:Boolean">[False]</InArgument></Assign.Value>
+                                </Assign>
+                                <Assign DisplayName="Set Code">
+                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:String">BR06_IRS_LIMIT_EXCEEDED</InArgument></Assign.Value>
+                                </Assign>
+                                <Assign DisplayName="Set Detail">
+                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:String">[in_PlanType &amp; &quot; amount &quot; &amp; in_Amount.ToString() &amp; &quot; exceeds 2026 IRS ceiling &quot; &amp; ceiling.ToString()]</InArgument></Assign.Value>
+                                </Assign>
+                            </Sequence>
+                        </If.Else>
+                    </If>
+                </Sequence>
+            </If.Then>
+            <If.Else>
+                <Sequence>
+                    <Assign DisplayName="Not Applicable -> Valid">
+                        <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+                    </Assign>
+                </Sequence>
+            </If.Else>
+        </If>
+    </Sequence>
+</Activity>

@@ -1,0 +1,78 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="HttpInvoke" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
+        <x:Property Name="in_ResourcePath" Type="InArgument(x:String)" />
+        <x:Property Name="in_Method" Type="InArgument(x:String)" />
+        <x:Property Name="in_ApiKey" Type="InArgument(x:String)" />
+        <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
+        <x:Property Name="in_JsonBody" Type="InArgument(x:String)" />
+        <x:Property Name="out_StatusCode" Type="OutArgument(x:Int32)" />
+        <x:Property Name="out_Body" Type="OutArgument(x:String)" />
+        <x:Property Name="out_ErrorCode" Type="OutArgument(x:String)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String>
+            <x:String>System.Collections.Generic</x:String>
+            <x:String>System</x:String>
+            <x:String>System.Linq</x:String>
+            <x:String>System.Net</x:String>
+            <x:String>UiPath.Core.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference>
+            <AssemblyReference>System</AssemblyReference>
+            <AssemblyReference>System.Linq</AssemblyReference>
+            <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+            <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="HTTP Invoke (Router)">
+        <ui:LogMessage DisplayName="Log Request" Level="Trace" Message="[&quot;HTTP &quot; &amp; in_Method &amp; &quot; &quot; &amp; in_ResourcePath]" />
+        <If DisplayName="Method Switch (GET / POST)" Condition="[String.Equals(in_Method, &quot;POST&quot;, StringComparison.OrdinalIgnoreCase)]">
+            <If.Then>
+                <Sequence>
+                    <ui:InvokeWorkflowFile DisplayName="Invoke HttpPost" WorkflowFileName="Framework\HttpPost.xaml">
+                        <ui:InvokeWorkflowFile.Arguments>
+                            <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_BaseUrl]</InArgument>
+                            <InArgument x:TypeArguments="x:String" x:Key="in_ResourcePath">[in_ResourcePath]</InArgument>
+                            <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[in_ApiKey]</InArgument>
+                            <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[in_EmployeeId]</InArgument>
+                            <InArgument x:TypeArguments="x:String" x:Key="in_JsonBody">[in_JsonBody]</InArgument>
+                            <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[out_StatusCode]</OutArgument>
+                            <OutArgument x:TypeArguments="x:String" x:Key="out_Body">[out_Body]</OutArgument>
+                            <OutArgument x:TypeArguments="x:String" x:Key="out_ErrorCode">[out_ErrorCode]</OutArgument>
+                        </ui:InvokeWorkflowFile.Arguments>
+                    </ui:InvokeWorkflowFile>
+                </Sequence>
+            </If.Then>
+            <If.Else>
+                <Sequence>
+                    <ui:InvokeWorkflowFile DisplayName="Invoke HttpGet" WorkflowFileName="Framework\HttpGet.xaml">
+                        <ui:InvokeWorkflowFile.Arguments>
+                            <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_BaseUrl]</InArgument>
+                            <InArgument x:TypeArguments="x:String" x:Key="in_ResourcePath">[in_ResourcePath]</InArgument>
+                            <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[in_ApiKey]</InArgument>
+                            <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[in_EmployeeId]</InArgument>
+                            <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[out_StatusCode]</OutArgument>
+                            <OutArgument x:TypeArguments="x:String" x:Key="out_Body">[out_Body]</OutArgument>
+                            <OutArgument x:TypeArguments="x:String" x:Key="out_ErrorCode">[out_ErrorCode]</OutArgument>
+                        </ui:InvokeWorkflowFile.Arguments>
+                    </ui:InvokeWorkflowFile>
+                </Sequence>
+            </If.Else>
+        </If>
+        <ui:LogMessage DisplayName="Log Response" Level="Trace" Message="[&quot;HTTP &quot; &amp; in_Method &amp; &quot; &quot; &amp; in_ResourcePath &amp; &quot; -&gt; &quot; &amp; out_StatusCode.ToString() &amp; &quot; ErrorCode=&quot; &amp; If(out_ErrorCode, &quot;&quot;)]" />
+    </Sequence>
+</Activity>

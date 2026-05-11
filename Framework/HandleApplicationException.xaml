@@ -1,0 +1,44 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="HandleApplicationException" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="in_ExceptionCode" Type="InArgument(x:String)" />
+        <x:Property Name="in_Detail" Type="InArgument(x:String)" />
+        <x:Property Name="in_Attempt" Type="InArgument(x:Int32)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String>
+            <x:String>System</x:String>
+            <x:String>UiPath.Core.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference>
+            <AssemblyReference>System</AssemblyReference>
+            <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+            <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="Handle Application Exception">
+        <ui:LogMessage DisplayName="Log Application Exception"
+                       Level="Error"
+                       Message="[&quot;APP_EXCEPTION Code=&quot; &amp; If(in_ExceptionCode, &quot;&quot;) &amp; &quot; Attempt=&quot; &amp; in_Attempt.ToString() &amp; &quot; Detail=&quot; &amp; If(in_Detail, &quot;&quot;)]" />
+        <If DisplayName="Escalate after 3rd attempt?" Condition="[in_Attempt &gt;= 3]">
+            <If.Then>
+                <Sequence>
+                    <ui:LogMessage DisplayName="Escalate to HR-Tech On-Call"
+                                   Level="Fatal"
+                                   Message="[&quot;ESCALATE: Page dl-hrtech-oncall for code=&quot; &amp; If(in_ExceptionCode, &quot;&quot;) &amp; &quot; -- &quot; &amp; If(in_Detail, &quot;&quot;)]" />
+                </Sequence>
+            </If.Then>
+        </If>
+    </Sequence>
+</Activity>

@@ -1,0 +1,96 @@
+<Activity mc:Ignorable="sap sap2010" x:Class="ReconcileDraft" mva:VisualBasic.Settings="{x:Null}"
+ xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+ xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
+ xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
+ xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
+ xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
+ xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
+ xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:web="clr-namespace:UiPath.Web.Activities;assembly=UiPath.Web.Activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:Members>
+        <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
+        <x:Property Name="in_ApiKey" Type="InArgument(x:String)" />
+        <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
+        <x:Property Name="in_ExpectedLineCount" Type="InArgument(x:Int32)" />
+        <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
+        <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
+        <x:Property Name="out_Detail" Type="OutArgument(x:String)" />
+    </x:Members>
+    <TextExpression.NamespacesForImplementation>
+        <sco:Collection x:TypeArguments="x:String">
+            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>Newtonsoft.Json.Linq</x:String><x:String>UiPath.Core.Activities</x:String><x:String>UiPath.Web.Activities</x:String>
+        </sco:Collection>
+    </TextExpression.NamespacesForImplementation>
+    <TextExpression.ReferencesForImplementation>
+        <sco:Collection x:TypeArguments="AssemblyReference">
+            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>Newtonsoft.Json</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference><AssemblyReference>UiPath.Web.Activities</AssemblyReference>
+        </sco:Collection>
+    </TextExpression.ReferencesForImplementation>
+    <Sequence DisplayName="C-08 Reconcile Draft">
+        <Sequence.Variables>
+            <Variable x:TypeArguments="x:Int32" Name="status" />
+            <Variable x:TypeArguments="x:String" Name="body" />
+            <Variable x:TypeArguments="x:String" Name="errCode" />
+            <Variable x:TypeArguments="njl:JObject" Name="draft" />
+            <Variable x:TypeArguments="x:Int32" Name="draftLineCount" />
+        </Sequence.Variables>
+        <Assign DisplayName="Default IsValid">
+            <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+            <Assign.Value><InArgument x:TypeArguments="x:Boolean">[False]</InArgument></Assign.Value>
+        </Assign>
+        <ui:InvokeWorkflowFile DisplayName="GET /api/enroll/draft" WorkflowFileName="Framework\HttpGet.xaml">
+            <ui:InvokeWorkflowFile.Arguments>
+                <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_BaseUrl]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_ResourcePath">/api/enroll/draft</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[in_ApiKey]</InArgument>
+                <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[in_EmployeeId]</InArgument>
+                <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[status]</OutArgument>
+                <OutArgument x:TypeArguments="x:String" x:Key="out_Body">[body]</OutArgument>
+                <OutArgument x:TypeArguments="x:String" x:Key="out_ErrorCode">[errCode]</OutArgument>
+            </ui:InvokeWorkflowFile.Arguments>
+        </ui:InvokeWorkflowFile>
+        <If DisplayName="If 200" Condition="[status = 200]">
+            <If.Then>
+                <Sequence>
+                    <ui:DeserializeJson x:TypeArguments="njl:JObject" DisplayName="Parse Draft" JsonString="[body]" JsonObject="[draft]" />
+                    <Assign DisplayName="Compute draft line count">
+                        <Assign.To><OutArgument x:TypeArguments="x:Int32">[draftLineCount]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:Int32">[If(draft IsNot Nothing AndAlso draft("lines") IsNot Nothing, CType(draft("lines"), JArray).Count, 0)]</InArgument></Assign.Value>
+                    </Assign>
+                    <If DisplayName="Counts match?" Condition="[draftLineCount = in_ExpectedLineCount]">
+                        <If.Then>
+                            <Sequence>
+                                <Assign DisplayName="Valid">
+                                    <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
+                                </Assign>
+                            </Sequence>
+                        </If.Then>
+                        <If.Else>
+                            <Sequence>
+                                <Assign DisplayName="Set Code">
+                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:String">DRAFT_RECONCILE_MISMATCH</InArgument></Assign.Value>
+                                </Assign>
+                                <Assign DisplayName="Set Detail">
+                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument></Assign.To>
+                                    <Assign.Value><InArgument x:TypeArguments="x:String">[&quot;Draft has &quot; &amp; draftLineCount.ToString() &amp; &quot; lines, expected &quot; &amp; in_ExpectedLineCount.ToString()]</InArgument></Assign.Value>
+                                </Assign>
+                            </Sequence>
+                        </If.Else>
+                    </If>
+                </Sequence>
+            </If.Then>
+            <If.Else>
+                <Sequence>
+                    <Assign DisplayName="Set HTTP ExceptionCode">
+                        <Assign.To><OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument></Assign.To>
+                        <Assign.Value><InArgument x:TypeArguments="x:String">[If(String.IsNullOrEmpty(errCode), &quot;HTTP_&quot; &amp; status.ToString(), errCode)]</InArgument></Assign.Value>
+                    </Assign>
+                </Sequence>
+            </If.Else>
+        </If>
+    </Sequence>
+</Activity>
