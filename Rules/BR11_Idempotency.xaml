@@ -1,32 +1,53 @@
-<Activity mc:Ignorable="sap sap2010" x:Class="BR11_Idempotency" mva:VisualBasic.Settings="{x:Null}"
- xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
- xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
- xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
- xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
- xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
- xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
- xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
- xmlns:ui="http://schemas.uipath.com/workflow/activities"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <x:Members>
-        <x:Property Name="in_CurrentEnrollment" Type="InArgument(njl:JObject)" />
-        <x:Property Name="in_PlanYear" Type="InArgument(x:Int32)" />
-        <x:Property Name="out_IsDuplicate" Type="OutArgument(x:Boolean)" />
-    </x:Members>
-    <TextExpression.NamespacesForImplementation>
-        <sco:Collection x:TypeArguments="x:String">
-            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>Newtonsoft.Json.Linq</x:String><x:String>UiPath.Core.Activities</x:String>
-        </sco:Collection>
-    </TextExpression.NamespacesForImplementation>
-    <TextExpression.ReferencesForImplementation>
-        <sco:Collection x:TypeArguments="AssemblyReference">
-            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>Newtonsoft.Json</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference>
-        </sco:Collection>
-    </TextExpression.ReferencesForImplementation>
-    <Sequence DisplayName="BR-11 Idempotency">
-        <Assign DisplayName="Compute IsDuplicate">
-            <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsDuplicate]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:Boolean">[in_CurrentEnrollment IsNot Nothing AndAlso in_CurrentEnrollment("status") IsNot Nothing AndAlso String.Equals(in_CurrentEnrollment("status").ToString(), "Active", StringComparison.OrdinalIgnoreCase) AndAlso in_CurrentEnrollment("planYear") IsNot Nothing AndAlso CInt(in_CurrentEnrollment("planYear")) = in_PlanYear]</InArgument></Assign.Value>
-        </Assign>
-    </Sequence>
+<Activity mc:Ignorable="sap sap2010" x:Class="BR11_Idempotency" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <x:Members>
+    <x:Property Name="in_CurrentEnrollment" Type="InArgument(njl:JObject)" />
+    <x:Property Name="in_PlanYear" Type="InArgument(x:Int32)" />
+    <x:Property Name="out_IsDuplicate" Type="OutArgument(x:Boolean)" />
+  </x:Members>
+  <VisualBasic.Settings>
+    <x:Null />
+  </VisualBasic.Settings>
+  <sap2010:WorkflowViewState.IdRef>ActivityBuilder_1</sap2010:WorkflowViewState.IdRef>
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>GlobalConstantsNamespace</x:String>
+      <x:String>GlobalVariablesNamespace</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+      <x:String>System</x:String>
+      <x:String>System.Activities</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Collections.ObjectModel</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+      <x:String>UiPath.Core.Activities</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Activities</AssemblyReference>
+      <AssemblyReference>System.ComponentModel.TypeConverter</AssemblyReference>
+      <AssemblyReference>System.Linq</AssemblyReference>
+      <AssemblyReference>System.ObjectModel</AssemblyReference>
+      <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.UiAutomation.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="BR-11 Idempotency" sap2010:WorkflowViewState.IdRef="Sequence_1">
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
+    <Assign DisplayName="Compute IsDuplicate" sap2010:WorkflowViewState.IdRef="Assign_1">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:Boolean">[out_IsDuplicate]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:Boolean">[in_CurrentEnrollment IsNot Nothing AndAlso in_CurrentEnrollment("status") IsNot Nothing AndAlso String.Equals(in_CurrentEnrollment("status").ToString(), "Active", StringComparison.OrdinalIgnoreCase) AndAlso in_CurrentEnrollment("planYear") IsNot Nothing AndAlso CInt(in_CurrentEnrollment("planYear")) = in_PlanYear]</InArgument>
+      </Assign.Value>
+    </Assign>
+  </Sequence>
 </Activity>

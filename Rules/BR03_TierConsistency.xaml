@@ -1,108 +1,247 @@
-<Activity mc:Ignorable="sap sap2010" x:Class="BR03_TierConsistency" mva:VisualBasic.Settings="{x:Null}"
- xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
- xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
- xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
- xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
- xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
- xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
- xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
- xmlns:ui="http://schemas.uipath.com/workflow/activities"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <x:Members>
-        <x:Property Name="in_MedicalTier" Type="InArgument(x:String)" />
-        <x:Property Name="in_Dependents" Type="InArgument(njl:JArray)" />
-        <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
-        <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
-        <x:Property Name="out_Detail" Type="OutArgument(x:String)" />
-    </x:Members>
-    <TextExpression.NamespacesForImplementation>
-        <sco:Collection x:TypeArguments="x:String">
-            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>System.Linq</x:String><x:String>Newtonsoft.Json.Linq</x:String><x:String>UiPath.Core.Activities</x:String>
-        </sco:Collection>
-    </TextExpression.NamespacesForImplementation>
-    <TextExpression.ReferencesForImplementation>
-        <sco:Collection x:TypeArguments="AssemblyReference">
-            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Linq</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>Newtonsoft.Json</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference>
-        </sco:Collection>
-    </TextExpression.ReferencesForImplementation>
-    <Sequence DisplayName="BR-03 Tier Consistency">
-        <Sequence.Variables>
-            <Variable x:TypeArguments="x:String" Name="tier" />
-            <Variable x:TypeArguments="x:Boolean" Name="needsSpouse" />
-            <Variable x:TypeArguments="x:Boolean" Name="needsChild" />
-            <Variable x:TypeArguments="x:Boolean" Name="hasSpouse" />
-            <Variable x:TypeArguments="x:Boolean" Name="hasChild" />
-        </Sequence.Variables>
-        <Assign DisplayName="Normalize Tier">
-            <Assign.To><OutArgument x:TypeArguments="x:String">[tier]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:String">[If(in_MedicalTier, &quot;&quot;).Trim().ToLowerInvariant()]</InArgument></Assign.Value>
-        </Assign>
-        <Assign DisplayName="needsSpouse?">
-            <Assign.To><OutArgument x:TypeArguments="x:Boolean">[needsSpouse]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:Boolean">[tier.Contains(&quot;spouse&quot;) OrElse tier.Contains(&quot;family&quot;)]</InArgument></Assign.Value>
-        </Assign>
-        <Assign DisplayName="needsChild?">
-            <Assign.To><OutArgument x:TypeArguments="x:Boolean">[needsChild]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:Boolean">[tier.Contains(&quot;child&quot;) OrElse tier.Contains(&quot;children&quot;) OrElse tier.Contains(&quot;family&quot;)]</InArgument></Assign.Value>
-        </Assign>
-        <If DisplayName="Have dependents?" Condition="[in_Dependents IsNot Nothing AndAlso in_Dependents.Count &gt; 0]">
-            <If.Then>
-                <Sequence>
-                    <ForEach x:TypeArguments="njl:JToken" DisplayName="Scan dependents" Values="[in_Dependents]">
-                        <ActivityAction x:TypeArguments="njl:JToken">
-                            <ActivityAction.Argument>
-                                <DelegateInArgument x:TypeArguments="njl:JToken" Name="dep" />
-                            </ActivityAction.Argument>
-                            <Sequence>
-                                <If DisplayName="Spouse?" Condition="[dep(&quot;relationship&quot;) IsNot Nothing AndAlso String.Equals(dep(&quot;relationship&quot;).ToString(), &quot;Spouse&quot;, StringComparison.OrdinalIgnoreCase)]">
-                                    <If.Then>
-                                        <Sequence>
-                                            <Assign DisplayName="Set hasSpouse">
-                                                <Assign.To><OutArgument x:TypeArguments="x:Boolean">[hasSpouse]</OutArgument></Assign.To>
-                                                <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
-                                            </Assign>
-                                        </Sequence>
-                                    </If.Then>
-                                    <If.Else>
-                                        <Sequence>
-                                            <Assign DisplayName="Set hasChild">
-                                                <Assign.To><OutArgument x:TypeArguments="x:Boolean">[hasChild]</OutArgument></Assign.To>
-                                                <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
-                                            </Assign>
-                                        </Sequence>
-                                    </If.Else>
-                                </If>
-                            </Sequence>
-                        </ActivityAction>
-                    </ForEach>
-                </Sequence>
-            </If.Then>
-        </If>
-        <If DisplayName="Tier consistent?" Condition="[(Not needsSpouse OrElse hasSpouse) AndAlso (Not needsChild OrElse hasChild)]">
-            <If.Then>
-                <Sequence>
-                    <Assign DisplayName="Valid">
-                        <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
-                        <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
-                    </Assign>
-                </Sequence>
-            </If.Then>
-            <If.Else>
-                <Sequence>
-                    <Assign DisplayName="Invalid">
-                        <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
-                        <Assign.Value><InArgument x:TypeArguments="x:Boolean">[False]</InArgument></Assign.Value>
-                    </Assign>
-                    <Assign DisplayName="Set Code">
-                        <Assign.To><OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument></Assign.To>
-                        <Assign.Value><InArgument x:TypeArguments="x:String">BR03_TIER_INCONSISTENT</InArgument></Assign.Value>
-                    </Assign>
-                    <Assign DisplayName="Set Detail">
-                        <Assign.To><OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument></Assign.To>
-                        <Assign.Value><InArgument x:TypeArguments="x:String">[&quot;Medical tier &quot; &amp; in_MedicalTier &amp; &quot; requires dependents not on file&quot;]</InArgument></Assign.Value>
-                    </Assign>
-                </Sequence>
-            </If.Else>
-        </If>
-    </Sequence>
+<Activity mc:Ignorable="sap sap2010" x:Class="BR03_TierConsistency" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <x:Members>
+    <x:Property Name="in_MedicalTier" Type="InArgument(x:String)" />
+    <x:Property Name="in_Dependents" Type="InArgument(njl:JArray)" />
+    <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
+    <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
+    <x:Property Name="out_Detail" Type="OutArgument(x:String)" />
+  </x:Members>
+  <VisualBasic.Settings>
+    <x:Null />
+  </VisualBasic.Settings>
+  <sap2010:WorkflowViewState.IdRef>ActivityBuilder_1</sap2010:WorkflowViewState.IdRef>
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>GlobalConstantsNamespace</x:String>
+      <x:String>GlobalVariablesNamespace</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+      <x:String>System</x:String>
+      <x:String>System.Activities</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Collections.ObjectModel</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+      <x:String>UiPath.Core.Activities</x:String>
+      <x:String>System.Collections.ObjectModel</x:String>
+      <x:String>System.Collections</x:String>
+      <x:String>System.Activities.Statements</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Activities</AssemblyReference>
+      <AssemblyReference>System.ComponentModel.TypeConverter</AssemblyReference>
+      <AssemblyReference>System.Linq</AssemblyReference>
+      <AssemblyReference>System.ObjectModel</AssemblyReference>
+      <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.UiAutomation.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.Studio.Constants</AssemblyReference>
+      <AssemblyReference>NPOI.Core</AssemblyReference>
+      <AssemblyReference>System.Collections</AssemblyReference>
+      <AssemblyReference>System.Collections.NonGeneric</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="BR-03 Tier Consistency" sap:VirtualizedContainerService.HintSize="828.2,1100" sap2010:WorkflowViewState.IdRef="Sequence_7">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:String" Name="tier" />
+      <Variable x:TypeArguments="x:Boolean" Name="needsSpouse" />
+      <Variable x:TypeArguments="x:Boolean" Name="needsChild" />
+      <Variable x:TypeArguments="x:Boolean" Name="hasSpouse" />
+      <Variable x:TypeArguments="x:Boolean" Name="hasChild" />
+    </Sequence.Variables>
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
+    <Assign DisplayName="Normalize Tier" sap:VirtualizedContainerService.HintSize="540.8,48" sap2010:WorkflowViewState.IdRef="Assign_1">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:String">[tier]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">[If(in_MedicalTier, "").Trim().ToLowerInvariant()]</InArgument>
+      </Assign.Value>
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </Assign>
+    <Assign DisplayName="needsSpouse?" sap:VirtualizedContainerService.HintSize="540.8,48" sap2010:WorkflowViewState.IdRef="Assign_2">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:Boolean">[needsSpouse]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:Boolean">[tier.Contains("spouse") OrElse tier.Contains("family")]</InArgument>
+      </Assign.Value>
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </Assign>
+    <Assign DisplayName="needsChild?" sap:VirtualizedContainerService.HintSize="540.8,48" sap2010:WorkflowViewState.IdRef="Assign_3">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:Boolean">[needsChild]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:Boolean">[tier.Contains("child") OrElse tier.Contains("children") OrElse tier.Contains("family")]</InArgument>
+      </Assign.Value>
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </Assign>
+    <If Condition="[in_Dependents IsNot Nothing AndAlso in_Dependents.Count &gt; 0]" DisplayName="Have dependents?" sap:VirtualizedContainerService.HintSize="540.8,600" sap2010:WorkflowViewState.IdRef="If_2">
+      <If.Then>
+        <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="540.8,432" sap2010:WorkflowViewState.IdRef="Sequence_4">
+          <sap:WorkflowViewStateService.ViewState>
+            <scg:Dictionary x:TypeArguments="x:String, x:Object">
+              <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+            </scg:Dictionary>
+          </sap:WorkflowViewStateService.ViewState>
+          <ForEach x:TypeArguments="njl:JToken" DisplayName="Scan dependents" sap:VirtualizedContainerService.HintSize="510.4,384" sap2010:WorkflowViewState.IdRef="ForEach`1_1" Values="[in_Dependents]">
+            <ActivityAction x:TypeArguments="njl:JToken">
+              <ActivityAction.Argument>
+                <DelegateInArgument x:TypeArguments="njl:JToken" Name="dep" />
+              </ActivityAction.Argument>
+              <Sequence sap:VirtualizedContainerService.HintSize="510.4,312" sap2010:WorkflowViewState.IdRef="Sequence_3">
+                <sap:WorkflowViewStateService.ViewState>
+                  <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                    <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+                  </scg:Dictionary>
+                </sap:WorkflowViewStateService.ViewState>
+                <If Condition="[dep(&quot;relationship&quot;) IsNot Nothing AndAlso String.Equals(dep(&quot;relationship&quot;).ToString(), &quot;Spouse&quot;, StringComparison.OrdinalIgnoreCase)]" DisplayName="Spouse?" sap:VirtualizedContainerService.HintSize="480,264" sap2010:WorkflowViewState.IdRef="If_1">
+                  <If.Then>
+                    <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_1">
+                      <sap:WorkflowViewStateService.ViewState>
+                        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                          <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+                        </scg:Dictionary>
+                      </sap:WorkflowViewStateService.ViewState>
+                      <Assign DisplayName="Set hasSpouse" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_4">
+                        <Assign.To>
+                          <OutArgument x:TypeArguments="x:Boolean">[hasSpouse]</OutArgument>
+                        </Assign.To>
+                        <Assign.Value>
+                          <InArgument x:TypeArguments="x:Boolean">[True]</InArgument>
+                        </Assign.Value>
+                        <sap:WorkflowViewStateService.ViewState>
+                          <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                            <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+                          </scg:Dictionary>
+                        </sap:WorkflowViewStateService.ViewState>
+                      </Assign>
+                    </Sequence>
+                  </If.Then>
+                  <If.Else>
+                    <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_2">
+                      <sap:WorkflowViewStateService.ViewState>
+                        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                          <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+                        </scg:Dictionary>
+                      </sap:WorkflowViewStateService.ViewState>
+                      <Assign DisplayName="Set hasChild" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_5">
+                        <Assign.To>
+                          <OutArgument x:TypeArguments="x:Boolean">[hasChild]</OutArgument>
+                        </Assign.To>
+                        <Assign.Value>
+                          <InArgument x:TypeArguments="x:Boolean">[True]</InArgument>
+                        </Assign.Value>
+                        <sap:WorkflowViewStateService.ViewState>
+                          <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                            <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+                          </scg:Dictionary>
+                        </sap:WorkflowViewStateService.ViewState>
+                      </Assign>
+                    </Sequence>
+                  </If.Else>
+                </If>
+              </Sequence>
+            </ActivityAction>
+          </ForEach>
+        </Sequence>
+      </If.Then>
+      <If.Else>
+        <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_8">
+          <sap:WorkflowViewStateService.ViewState>
+            <scg:Dictionary x:TypeArguments="x:String, x:Object">
+              <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+            </scg:Dictionary>
+          </sap:WorkflowViewStateService.ViewState>
+        </Sequence>
+      </If.Else>
+    </If>
+    <If Condition="[(Not needsSpouse OrElse hasSpouse) AndAlso (Not needsChild OrElse hasChild)]" DisplayName="Tier consistent?" sap:VirtualizedContainerService.HintSize="540.8,332" sap2010:WorkflowViewState.IdRef="If_3">
+      <If.Then>
+        <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_5">
+          <sap:WorkflowViewStateService.ViewState>
+            <scg:Dictionary x:TypeArguments="x:String, x:Object">
+              <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+            </scg:Dictionary>
+          </sap:WorkflowViewStateService.ViewState>
+          <Assign DisplayName="Valid" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_6">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:Boolean">[True]</InArgument>
+            </Assign.Value>
+            <sap:WorkflowViewStateService.ViewState>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+              </scg:Dictionary>
+            </sap:WorkflowViewStateService.ViewState>
+          </Assign>
+        </Sequence>
+      </If.Then>
+      <If.Else>
+        <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,164" sap2010:WorkflowViewState.IdRef="Sequence_6">
+          <sap:WorkflowViewStateService.ViewState>
+            <scg:Dictionary x:TypeArguments="x:String, x:Object">
+              <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+            </scg:Dictionary>
+          </sap:WorkflowViewStateService.ViewState>
+          <Assign DisplayName="Invalid" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_7">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:Boolean">[False]</InArgument>
+            </Assign.Value>
+            <sap:WorkflowViewStateService.ViewState>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+              </scg:Dictionary>
+            </sap:WorkflowViewStateService.ViewState>
+          </Assign>
+          <Assign DisplayName="Set Code" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_8">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:String">BR03_TIER_INCONSISTENT</InArgument>
+            </Assign.Value>
+            <sap:WorkflowViewStateService.ViewState>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+              </scg:Dictionary>
+            </sap:WorkflowViewStateService.ViewState>
+          </Assign>
+          <Assign DisplayName="Set Detail" sap2010:WorkflowViewState.IdRef="Assign_9">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:String">["Medical tier " &amp; in_MedicalTier &amp; " requires dependents not on file"]</InArgument>
+            </Assign.Value>
+          </Assign>
+        </Sequence>
+      </If.Else>
+    </If>
+  </Sequence>
 </Activity>

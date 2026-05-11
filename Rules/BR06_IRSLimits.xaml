@@ -1,86 +1,193 @@
-<Activity mc:Ignorable="sap sap2010" x:Class="BR06_IRSLimits" mva:VisualBasic.Settings="{x:Null}"
- xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
- xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
- xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities"
- xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json"
- xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation"
- xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation"
- xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=mscorlib"
- xmlns:ui="http://schemas.uipath.com/workflow/activities"
- xmlns:web="clr-namespace:UiPath.Web.Activities;assembly=UiPath.Web.Activities"
- xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <x:Members>
-        <x:Property Name="in_PlanType" Type="InArgument(x:String)" />
-        <x:Property Name="in_Amount" Type="InArgument(x:Decimal)" />
-        <x:Property Name="in_LimitsJson" Type="InArgument(x:String)" />
-        <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
-        <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
-        <x:Property Name="out_Detail" Type="OutArgument(x:String)" />
-    </x:Members>
-    <TextExpression.NamespacesForImplementation>
-        <sco:Collection x:TypeArguments="x:String">
-            <x:String>System.Activities</x:String><x:String>System</x:String><x:String>Newtonsoft.Json.Linq</x:String><x:String>UiPath.Core.Activities</x:String><x:String>UiPath.Web.Activities</x:String>
-        </sco:Collection>
-    </TextExpression.NamespacesForImplementation>
-    <TextExpression.ReferencesForImplementation>
-        <sco:Collection x:TypeArguments="AssemblyReference">
-            <AssemblyReference>System.Activities</AssemblyReference><AssemblyReference>System</AssemblyReference><AssemblyReference>System.Private.CoreLib</AssemblyReference><AssemblyReference>Newtonsoft.Json</AssemblyReference><AssemblyReference>UiPath.System.Activities</AssemblyReference><AssemblyReference>UiPath.Web.Activities</AssemblyReference>
-        </sco:Collection>
-    </TextExpression.ReferencesForImplementation>
-    <Sequence DisplayName="BR-06 IRS Limits">
-        <Sequence.Variables>
-            <Variable x:TypeArguments="njl:JObject" Name="limits" />
-            <Variable x:TypeArguments="x:Decimal" Name="ceiling" />
-            <Variable x:TypeArguments="x:String" Name="key" />
-        </Sequence.Variables>
-        <ui:DeserializeJson x:TypeArguments="njl:JObject" DisplayName="Parse Limits" JsonString="[in_LimitsJson]" JsonObject="[limits]" />
-        <Assign DisplayName="Map PlanType to Limit Key">
-            <Assign.To><OutArgument x:TypeArguments="x:String">[key]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:String">[If(in_PlanType = &quot;fsaHealth&quot;, &quot;fsaHealth&quot;, If(in_PlanType = &quot;fsaDependent&quot;, &quot;fsaDcSingle&quot;, If(in_PlanType = &quot;hsa&quot;, &quot;hsaSelf&quot;, If(in_PlanType = &quot;commuterTransit&quot;, &quot;commuterTransit&quot;, If(in_PlanType = &quot;commuterParking&quot;, &quot;commuterParking&quot;, If(in_PlanType = &quot;retirement&quot;, &quot;k401Deferral&quot;, &quot;&quot;))))))]</InArgument></Assign.Value>
-        </Assign>
-        <If DisplayName="Mapped key?" Condition="[Not String.IsNullOrEmpty(key) AndAlso limits IsNot Nothing AndAlso limits(key) IsNot Nothing]">
+<Activity mc:Ignorable="sap sap2010" x:Class="BR06_IRSLimits" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib" xmlns:ui="http://schemas.uipath.com/workflow/activities" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <x:Members>
+    <x:Property Name="in_PlanType" Type="InArgument(x:String)" />
+    <x:Property Name="in_Amount" Type="InArgument(x:Decimal)" />
+    <x:Property Name="in_LimitsJson" Type="InArgument(x:String)" />
+    <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
+    <x:Property Name="out_ExceptionCode" Type="OutArgument(x:String)" />
+    <x:Property Name="out_Detail" Type="OutArgument(x:String)" />
+  </x:Members>
+  <VisualBasic.Settings>
+    <x:Null />
+  </VisualBasic.Settings>
+  <sap2010:WorkflowViewState.IdRef>ActivityBuilder_1</sap2010:WorkflowViewState.IdRef>
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>GlobalConstantsNamespace</x:String>
+      <x:String>GlobalVariablesNamespace</x:String>
+      <x:String>Newtonsoft.Json.Linq</x:String>
+      <x:String>System</x:String>
+      <x:String>System.Activities</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Collections.ObjectModel</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>UiPath.Core</x:String>
+      <x:String>UiPath.Core.Activities</x:String>
+      <x:String>UiPath.Web.Activities</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>Newtonsoft.Json</AssemblyReference>
+      <AssemblyReference>System</AssemblyReference>
+      <AssemblyReference>System.Activities</AssemblyReference>
+      <AssemblyReference>System.ComponentModel.TypeConverter</AssemblyReference>
+      <AssemblyReference>System.Linq</AssemblyReference>
+      <AssemblyReference>System.ObjectModel</AssemblyReference>
+      <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.UiAutomation.Activities</AssemblyReference>
+      <AssemblyReference>UiPath.Web.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="BR-06 IRS Limits" sap:VirtualizedContainerService.HintSize="828.2,744" sap2010:WorkflowViewState.IdRef="Sequence_5">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="njl:JObject" Name="limits" />
+      <Variable x:TypeArguments="x:Decimal" Name="ceiling" />
+      <Variable x:TypeArguments="x:String" Name="key" />
+    </Sequence.Variables>
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
+    <ui:DeserializeJson x:TypeArguments="njl:JObject" JsonSample="{x:Null}" Settings="{x:Null}" DisplayName="Parse Limits" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="DeserializeJson`1_1" JsonObject="[limits]" JsonString="[in_LimitsJson]">
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </ui:DeserializeJson>
+    <Assign DisplayName="Map PlanType to Limit Key" sap:VirtualizedContainerService.HintSize="510.4,48" sap2010:WorkflowViewState.IdRef="Assign_1">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:String">[key]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">[If(in_PlanType = "fsaHealth", "fsaHealth", If(in_PlanType = "fsaDependent", "fsaDcSingle", If(in_PlanType = "hsa", "hsaSelf", If(in_PlanType = "commuterTransit", "commuterTransit", If(in_PlanType = "commuterParking", "commuterParking", If(in_PlanType = "retirement", "k401Deferral", ""))))))]</InArgument>
+      </Assign.Value>
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </Assign>
+    <If Condition="[Not String.IsNullOrEmpty(key) AndAlso limits IsNot Nothing AndAlso limits(key) IsNot Nothing]" DisplayName="Mapped key?" sap:VirtualizedContainerService.HintSize="510.4,624" sap2010:WorkflowViewState.IdRef="If_2">
+      <If.Then>
+        <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="510.4,456" sap2010:WorkflowViewState.IdRef="Sequence_3">
+          <sap:WorkflowViewStateService.ViewState>
+            <scg:Dictionary x:TypeArguments="x:String, x:Object">
+              <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+            </scg:Dictionary>
+          </sap:WorkflowViewStateService.ViewState>
+          <Assign DisplayName="Read Ceiling" sap:VirtualizedContainerService.HintSize="480,48" sap2010:WorkflowViewState.IdRef="Assign_2">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:Decimal">[ceiling]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:Decimal">[CDec(limits(key))]</InArgument>
+            </Assign.Value>
+            <sap:WorkflowViewStateService.ViewState>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+              </scg:Dictionary>
+            </sap:WorkflowViewStateService.ViewState>
+          </Assign>
+          <If Condition="[in_Amount &lt;= ceiling]" DisplayName="Within ceiling?" sap:VirtualizedContainerService.HintSize="480,360" sap2010:WorkflowViewState.IdRef="If_1">
             <If.Then>
-                <Sequence>
-                    <Assign DisplayName="Read Ceiling">
-                        <Assign.To><OutArgument x:TypeArguments="x:Decimal">[ceiling]</OutArgument></Assign.To>
-                        <Assign.Value><InArgument x:TypeArguments="x:Decimal">[CDec(limits(key))]</InArgument></Assign.Value>
-                    </Assign>
-                    <If DisplayName="Within ceiling?" Condition="[in_Amount &lt;= ceiling]">
-                        <If.Then>
-                            <Sequence>
-                                <Assign DisplayName="Valid">
-                                    <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
-                                    <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
-                                </Assign>
-                            </Sequence>
-                        </If.Then>
-                        <If.Else>
-                            <Sequence>
-                                <Assign DisplayName="Invalid">
-                                    <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
-                                    <Assign.Value><InArgument x:TypeArguments="x:Boolean">[False]</InArgument></Assign.Value>
-                                </Assign>
-                                <Assign DisplayName="Set Code">
-                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument></Assign.To>
-                                    <Assign.Value><InArgument x:TypeArguments="x:String">BR06_IRS_LIMIT_EXCEEDED</InArgument></Assign.Value>
-                                </Assign>
-                                <Assign DisplayName="Set Detail">
-                                    <Assign.To><OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument></Assign.To>
-                                    <Assign.Value><InArgument x:TypeArguments="x:String">[in_PlanType &amp; &quot; amount &quot; &amp; in_Amount.ToString() &amp; &quot; exceeds 2026 IRS ceiling &quot; &amp; ceiling.ToString()]</InArgument></Assign.Value>
-                                </Assign>
-                            </Sequence>
-                        </If.Else>
-                    </If>
-                </Sequence>
+              <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_1">
+                <sap:WorkflowViewStateService.ViewState>
+                  <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                    <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+                  </scg:Dictionary>
+                </sap:WorkflowViewStateService.ViewState>
+                <Assign DisplayName="Valid" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_3">
+                  <Assign.To>
+                    <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
+                  </Assign.To>
+                  <Assign.Value>
+                    <InArgument x:TypeArguments="x:Boolean">[True]</InArgument>
+                  </Assign.Value>
+                  <sap:WorkflowViewStateService.ViewState>
+                    <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                      <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+                    </scg:Dictionary>
+                  </sap:WorkflowViewStateService.ViewState>
+                </Assign>
+              </Sequence>
             </If.Then>
             <If.Else>
-                <Sequence>
-                    <Assign DisplayName="Not Applicable -> Valid">
-                        <Assign.To><OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument></Assign.To>
-                        <Assign.Value><InArgument x:TypeArguments="x:Boolean">[True]</InArgument></Assign.Value>
-                    </Assign>
-                </Sequence>
+              <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,192" sap2010:WorkflowViewState.IdRef="Sequence_2">
+                <sap:WorkflowViewStateService.ViewState>
+                  <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                    <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+                  </scg:Dictionary>
+                </sap:WorkflowViewStateService.ViewState>
+                <Assign DisplayName="Invalid" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_4">
+                  <Assign.To>
+                    <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
+                  </Assign.To>
+                  <Assign.Value>
+                    <InArgument x:TypeArguments="x:Boolean">[False]</InArgument>
+                  </Assign.Value>
+                  <sap:WorkflowViewStateService.ViewState>
+                    <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                      <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+                    </scg:Dictionary>
+                  </sap:WorkflowViewStateService.ViewState>
+                </Assign>
+                <Assign DisplayName="Set Code" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_5">
+                  <Assign.To>
+                    <OutArgument x:TypeArguments="x:String">[out_ExceptionCode]</OutArgument>
+                  </Assign.To>
+                  <Assign.Value>
+                    <InArgument x:TypeArguments="x:String">BR06_IRS_LIMIT_EXCEEDED</InArgument>
+                  </Assign.Value>
+                  <sap:WorkflowViewStateService.ViewState>
+                    <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                      <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+                    </scg:Dictionary>
+                  </sap:WorkflowViewStateService.ViewState>
+                </Assign>
+                <Assign DisplayName="Set Detail" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_6">
+                  <Assign.To>
+                    <OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument>
+                  </Assign.To>
+                  <Assign.Value>
+                    <InArgument x:TypeArguments="x:String">[in_PlanType &amp; " amount " &amp; in_Amount.ToString() &amp; " exceeds 2026 IRS ceiling " &amp; ceiling.ToString()]</InArgument>
+                  </Assign.Value>
+                  <sap:WorkflowViewStateService.ViewState>
+                    <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                      <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+                    </scg:Dictionary>
+                  </sap:WorkflowViewStateService.ViewState>
+                </Assign>
+              </Sequence>
             </If.Else>
-        </If>
-    </Sequence>
+          </If>
+        </Sequence>
+      </If.Then>
+      <If.Else>
+        <Sequence DisplayName="Else" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_4">
+          <sap:WorkflowViewStateService.ViewState>
+            <scg:Dictionary x:TypeArguments="x:String, x:Object">
+              <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+            </scg:Dictionary>
+          </sap:WorkflowViewStateService.ViewState>
+          <Assign DisplayName="Not Applicable -&gt; Valid" sap:VirtualizedContainerService.HintSize="449.6,48" sap2010:WorkflowViewState.IdRef="Assign_7">
+            <Assign.To>
+              <OutArgument x:TypeArguments="x:Boolean">[out_IsValid]</OutArgument>
+            </Assign.To>
+            <Assign.Value>
+              <InArgument x:TypeArguments="x:Boolean">[True]</InArgument>
+            </Assign.Value>
+            <sap:WorkflowViewStateService.ViewState>
+              <scg:Dictionary x:TypeArguments="x:String, x:Object">
+                <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+              </scg:Dictionary>
+            </sap:WorkflowViewStateService.ViewState>
+          </Assign>
+        </Sequence>
+      </If.Else>
+    </If>
+  </Sequence>
 </Activity>
