@@ -11,7 +11,6 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <x:Members>
         <x:Property Name="out_BaseUrl" Type="OutArgument(x:String)" />
-        <x:Property Name="out_ApiKey" Type="OutArgument(x:String)" />
         <x:Property Name="out_PostingOrder" Type="OutArgument(x:String)" />
         <x:Property Name="out_IRSLimitsJson" Type="OutArgument(x:String)" />
     </x:Members>
@@ -35,8 +34,6 @@
     <Sequence DisplayName="Init">
         <Sequence.Variables>
             <Variable x:TypeArguments="x:Object" Name="baseUrlObj" />
-            <Variable x:TypeArguments="x:String" Name="apiKeyUser" />
-            <Variable x:TypeArguments="ss:SecureString" Name="apiKeyPwd" />
             <Variable x:TypeArguments="x:Object" Name="postingOrderObj" />
             <Variable x:TypeArguments="x:Object" Name="irsLimitsObj" />
         </Sequence.Variables>
@@ -47,11 +44,6 @@
         <Assign DisplayName="Assign BaseUrl">
             <Assign.To><OutArgument x:TypeArguments="x:String">[out_BaseUrl]</OutArgument></Assign.To>
             <Assign.Value><InArgument x:TypeArguments="x:String">[If(baseUrlObj IsNot Nothing, baseUrlObj.ToString(), &quot;&quot;)]</InArgument></Assign.Value>
-        </Assign>
-        <ui:GetRobotCredential DisplayName="C-02b Get API Key" AssetName="ACB.BenefitConnect.ApiKey" Username="[apiKeyUser]" Password="[apiKeyPwd]" />
-        <Assign DisplayName="Decode API Key">
-            <Assign.To><OutArgument x:TypeArguments="x:String">[out_ApiKey]</OutArgument></Assign.To>
-            <Assign.Value><InArgument x:TypeArguments="x:String">[New System.Net.NetworkCredential(String.Empty, apiKeyPwd).Password]</InArgument></Assign.Value>
         </Assign>
         <ui:GetRobotAsset DisplayName="Get PostingOrder" AssetName="ACB.NewHireOnboarding.PostingOrder" CacheStrategy="None">
             <ui:GetRobotAsset.Value><OutArgument x:TypeArguments="x:Object">[postingOrderObj]</OutArgument></ui:GetRobotAsset.Value>
@@ -67,6 +59,6 @@
             <Assign.To><OutArgument x:TypeArguments="x:String">[out_IRSLimitsJson]</OutArgument></Assign.To>
             <Assign.Value><InArgument x:TypeArguments="x:String">[If(irsLimitsObj IsNot Nothing, irsLimitsObj.ToString(), &quot;{&quot;&quot;fsaHealth&quot;&quot;:3300,&quot;&quot;fsaDcSingle&quot;&quot;:5000,&quot;&quot;fsaDcMfs&quot;&quot;:2500,&quot;&quot;hsaSelf&quot;&quot;:4300,&quot;&quot;hsaFamily&quot;&quot;:8550,&quot;&quot;commuterTransit&quot;&quot;:325,&quot;&quot;commuterParking&quot;&quot;:325,&quot;&quot;k401Deferral&quot;&quot;:23500,&quot;&quot;k401Catchup&quot;&quot;:7500}&quot;)]</InArgument></Assign.Value>
         </Assign>
-        <ui:LogMessage DisplayName="Log Init Done" Level="Info" Message="Init complete: BaseUrl + ApiKey + PostingOrder + IRSLimits loaded" />
+        <ui:LogMessage DisplayName="Log Init Done" Level="Info" Message="Init complete: BaseUrl + PostingOrder + IRSLimits loaded" />
     </Sequence>
 </Activity>

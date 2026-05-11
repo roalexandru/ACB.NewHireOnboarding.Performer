@@ -1,7 +1,6 @@
 <Activity mc:Ignorable="sap sap2010" x:Class="BeneficiaryPreCheck" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:njl="clr-namespace:Newtonsoft.Json.Linq;assembly=Newtonsoft.Json" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib" xmlns:ui="http://schemas.uipath.com/workflow/activities" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <x:Members>
     <x:Property Name="in_BaseUrl" Type="InArgument(x:String)" />
-    <x:Property Name="in_ApiKey" Type="InArgument(x:String)" />
     <x:Property Name="in_EmployeeId" Type="InArgument(x:String)" />
     <x:Property Name="in_HasLifeLine" Type="InArgument(x:Boolean)" />
     <x:Property Name="out_IsValid" Type="OutArgument(x:Boolean)" />
@@ -84,7 +83,6 @@
       <ui:InvokeWorkflowFile.Arguments>
         <InArgument x:TypeArguments="x:String" x:Key="in_BaseUrl">[in_BaseUrl]</InArgument>
         <InArgument x:TypeArguments="x:String" x:Key="in_ResourcePath">/api/beneficiaries</InArgument>
-        <InArgument x:TypeArguments="x:String" x:Key="in_ApiKey">[in_ApiKey]</InArgument>
         <InArgument x:TypeArguments="x:String" x:Key="in_EmployeeId">[in_EmployeeId]</InArgument>
         <OutArgument x:TypeArguments="x:Int32" x:Key="out_StatusCode">[status]</OutArgument>
         <OutArgument x:TypeArguments="x:String" x:Key="out_Body">[body]</OutArgument>
