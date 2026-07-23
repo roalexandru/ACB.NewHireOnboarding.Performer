@@ -1,0 +1,42 @@
+{
+  "Result": "Success",
+  "Code": "QueueList",
+  "Pagination": {
+    "Returned": 1,
+    "Limit": 50,
+    "Offset": 0,
+    "HasMore": false
+  },
+  "Data": [
+    {
+      "retentionAction": "Delete",
+      "retentionPeriod": 30,
+      "staleRetentionAction": "Delete",
+      "staleRetentionPeriod": 180,
+      "itemsToProcess": 0,
+      "itemsInProgress": 0,
+      "queueDefinitionId": 130727,
+      "queueDefinitionKey": "01843d7b-208c-45d1-a2f6-ee8e0d577314",
+      "queueDefinitionName": "NewHireBenefitsPosting",
+      "queueDefinitionDescription": "",
+      "queueDefinitionAcceptAutomaticallyRetry": false,
+      "queueDefinitionRetryAbandonedItems": false,
+      "queueDefinitionMaxNumberOfRetries": 1,
+      "queueDefinitionEnforceUniqueReference": false,
+      "processingMeanTime": 5.065,
+      "successfulTransactionsNo": 26,
+      "applicationExceptionsNo": 0,
+      "businessExceptionsNo": 2,
+      "successfulTransactionsProcessingTime": 5.32,
+      "applicationExceptionsProcessingTime": 0,
+      "businessExceptionsProcessingTime": 1.75,
+      "totalNumberOfTransactions": 28,
+      "specificDataJsonSchemaExists": false,
+      "outputDataJsonSchemaExists": false,
+      "analyticsDataJsonSchemaExists": false,
+      "queueFoldersCount": 1,
+      "tags": [],
+      "id": 130727
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "agent": "triage",
+  "summary": "Two queue items in NewHireBenefitsPosting (DevCon26) failed with BusinessException reason 'API_NOT_PUBLIC: '. Both items have status=Failed, processingExceptionType=BusinessException, error.code=User.QueueItemBusinessException. The processing time on each item is ~1-2 seconds, with logs showing Performer Init completed (assets loaded) and then the workflow immediately threw BusinessRuleException 'API_NOT_PUBLIC' from Framework/Process.xaml. The very first C-step in the documented pipeline is C-03 IdentityAssertion which calls GET /api/employees/me — consistent with the failure occurring before any other step ran (LinesPosted=0, EnrollmentId empty, ConfirmationNumber empty in TXN_LOG). Successful items continued processing through ~2026-05-14T08:12 (LinesPosted normally), and the most recent failure is at 09:22 same day. The earlier failure (2026-05-11T11:55) used the same exception code and is also marked reviewStatus=Retried, suggesting the operator already attempted a retry on the older one.",
+  "scope": {
+    "product": "orchestrator",
+    "tenant_folder": "DevCon26",
+    "folder_key": "0d7f4def-ffd4-4843-b772-bbe3b8fb9868",
+    "queue_name": "NewHireBenefitsPosting",
+    "queue_definition_key": "01843d7b-208c-45d1-a2f6-ee8e0d577314",
+    "process_release": "ACB.NewHireOnboarding.Performer",
+    "time_window": "2026-05-11T11:55Z to 2026-05-14T09:22Z (period covering both failures)"
+  },
+  "queue_totals": {
+    "successful": 26,
+    "business_exceptions": 2,
+    "application_exceptions": 0,
+    "abandoned": 0,
+    "total": 28
+  },
+  "failed_items": [
+    {
+      "key": "d34f4fb2-d6e5-424e-9f33-9e2821f34a7d",
+      "reference": "E8996-2026",
+      "employeeId": "E8996",
+      "username": "kofi.sato",
+      "hireDate": "2026-05-11",
+      "planYear": 2026,
+      "endProcessing": "2026-05-14T09:22:44.847Z",
+      "executorJobKey": "444e376c-7377-449c-8992-0b8134700818",
+      "processingExceptionReason": "API_NOT_PUBLIC: ",
+      "processingExceptionType": "BusinessException",
+      "retryNumber": 0,
+      "reviewStatus": "None"
+    },
+    {
+      "key": "27bf5cd0-1898-409c-bc20-37e9c47ca80f",
+      "reference": "E8857-2026",
+      "employeeId": "E8857",
+      "username": "diego.mendez",
+      "hireDate": "2026-05-02",
+      "planYear": 2026,
+      "endProcessing": "2026-05-11T11:55:24.437Z",
+      "executorJobKey": "406be78e-2e69-441b-9379-a2d4353fdaef",
+      "processingExceptionReason": "API_NOT_PUBLIC: ",
+      "processingExceptionType": "BusinessException",
+      "retryNumber": 0,
+      "reviewStatus": "Retried"
+    }
+  ],
+  "failure_categorization": {
+    "categories_found": 1,
+    "all_items_accounted_for": true,
+    "category_breakdown": [
+      {
+        "exception_code": "API_NOT_PUBLIC",
+        "exception_type": "BusinessException",
+        "item_count": 2,
+        "notes": "All failed items share the identical exception reason string 'API_NOT_PUBLIC: ' (trailing colon-space, empty detail). Per CLAUDE.md, the consumer uses BenefitConnect REST endpoints (/api/employees/me, /api/dependents, /api/beneficiaries, /api/enrollments/current, /api/plans/select, /api/enroll/draft, /api/enroll, /api/onboarding/pending/{id}/approve) with header X-API-Key from the ACB.BenefitConnect.ApiKey asset. CLAUDE.md explicitly calls out '403 API_NOT_PUBLIC' as a tenant-policy-revoke signal and lists it as the trigger to swap a C-step from API to UI Automation. Job logs show Init completed (assets loaded successfully) and the BusinessRuleException was thrown from Framework/Process.xaml very early in the transaction (1.4s total runtime), suggesting the failure is at or near C-03 GET /api/employees/me — the first call in the pipeline."
+      }
+    ]
+  },
+  "successful_items_compared": {
+    "count_sampled": 3,
+    "most_recent_success": "2026-05-14T08:12:56.123Z (E2922-2026)",
+    "input_pattern_observation": "Successful items use the same SpecificContent shape (TransactionId, EmployeeId, Username, HireDate, PlanYear, IntakeFormRef, ElectionsJson, DiscoveredAt, EnqueuedAt). No structural difference between successful and failed items' SpecificContent — both failed items use legitimate plan IDs from the documented catalog (MED-PPO, MED-HMO, DEN-BASIC, VIS-BASIC, STD, LTD, FSA-HC, COMMUTER, 401K). Failure is not driven by input-data shape; it appears to be a platform/API-side condition consistent across both items."
+  },
+  "job_evidence": {
+    "executor_job_key": "444e376c-7377-449c-8992-0b8134700818",
+    "host_machine": "VMDEE6AF199019",
+    "release_name": "ACB.NewHireOnboarding.Performer",
+    "log_excerpts": [
+      "2026-05-14T09:22:43.951Z [Info] Init complete: BaseUrl + PostingOrder + IRSLimits loaded",
+      "2026-05-14T09:22:44.691Z [Info] TXN_LOG TxnId=TXN-20260514091806-E8996 ... Outcome=BUSINESS_EXCEPTION EnrollmentId= ConfirmationNumber= LinesPosted=0 ExceptionCode=API_NOT_PUBLIC ExceptionDetail= IntakeFormRef=HR014-20260514-32431",
+      "2026-05-14T09:22:44.697Z [Error] Throw BusinessRuleException: API_NOT_PUBLIC: in Framework\\Process.xaml at Throw 'Throw BusinessRuleException' at Sequence 'Then' at If 'If Business Exception -- throw to REFramework' at Sequence 'Process Transaction' at Process 'Process'",
+      "2026-05-14T09:22:44.978Z [Error] Business rule exception.API_NOT_PUBLIC: "
+    ],
+    "interpretation": "Init step completed (all 4 assets loaded), TXN_LOG was emitted with LinesPosted=0, EnrollmentId blank, ConfirmationNumber blank — meaning no C-07 election post, no C-09 enrollment, no C-10 confirmation occurred. The failure happened at or before the C-07 stage and almost certainly at C-03 IdentityAssertion (the first API call). The classification path in Framework/HttpGet.xaml/HttpPost.xaml is designed to translate 403 into out_ErrorCode = 'API_NOT_PUBLIC' per CLAUDE.md, and Framework/Process.xaml then routes outcomeCode=BUSINESS_EXCEPTION through a BusinessRuleException throw — exactly the stack we see."
+  },
+  "raw_data_ref": [
+    ".investigation/raw/triage-folders.json",
+    ".investigation/raw/triage-queues-all.json",
+    ".investigation/raw/triage-failed-items.json",
+    ".investigation/raw/triage-abandoned-items.json",
+    ".investigation/raw/triage-successful-items.json",
+    ".investigation/raw/triage-item1-history.json",
+    ".investigation/raw/triage-job-recent.json",
+    ".investigation/raw/triage-job-recent-logs.json"
+  ],
+  "needs_user_input": false,
+  "data_gaps": [
+    "Job logs and queue item details for the older failure (item 27bf5cd0..., job 406be78e...) were not fetched — the recent failure was used as the representative job per Orchestrator investigation guide's 'investigate one at a time' rule. Both items share identical exception code so the bundle from the most recent failure is sufficient for playbook matching.",
+    "The classifier in Framework/HttpGet.xaml that converts an HTTP 403 into out_ErrorCode='API_NOT_PUBLIC' was not re-read from source — inferred from CLAUDE.md's documented design. Hypothesis testing should re-read HttpGet.xaml/HttpPost.xaml to confirm the 403 path is the only path that emits this code (and not, e.g., a hard-coded string in a specific C-step)."
+  ]
+}

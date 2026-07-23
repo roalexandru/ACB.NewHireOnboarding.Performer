@@ -1,0 +1,332 @@
+{
+  "Result": "Success",
+  "Code": "FolderList",
+  "Pagination": {
+    "Returned": 40,
+    "Limit": 50,
+    "Offset": 0,
+    "HasMore": false
+  },
+  "Data": [
+    {
+      "Key": "4029efab-27cf-42ee-8984-b33452eabc04",
+      "Name": "alexandru.roman@uipath.com's workspace",
+      "Path": "alexandru.roman@uipath.com's workspace",
+      "Description": "",
+      "Type": "Personal",
+      "ParentKey": ""
+    },
+    {
+      "Key": "f418831e-85f3-4fdc-a5be-04ce8716abbf",
+      "Name": "Apps consumes project",
+      "Path": "alexandru.roman@uipath.com's workspace/Apps consumes project",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "647adcac-a02c-452d-bd39-00e8a060f049",
+      "Name": "Debug_Order-to-Cash",
+      "Path": "alexandru.roman@uipath.com's workspace/Debug_Order-to-Cash",
+      "Description": "",
+      "Type": "DebugSolution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "a20ca4f0-78d7-43ca-b919-a0b8d725a310",
+      "Name": "Debug_Solution 103",
+      "Path": "alexandru.roman@uipath.com's workspace/Debug_Solution 103",
+      "Description": "",
+      "Type": "DebugSolution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "c8eda533-4312-4045-812f-d97520ebe17b",
+      "Name": "Debug_Solution 21",
+      "Path": "alexandru.roman@uipath.com's workspace/Debug_Solution 21",
+      "Description": "",
+      "Type": "DebugSolution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "81799667-11fe-4b49-b1ab-a42bf4a0d965",
+      "Name": "Debug_Solution 60",
+      "Path": "alexandru.roman@uipath.com's workspace/Debug_Solution 60",
+      "Description": "",
+      "Type": "DebugSolution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "31c286f0-3e3f-4f95-ba0a-6f7db2a1b01c",
+      "Name": "First Solution stg",
+      "Path": "alexandru.roman@uipath.com's workspace/First Solution stg",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "f7ab6dba-fcbd-4c72-a6a0-5fd1b4a7b209",
+      "Name": "Nutritional adviser",
+      "Path": "alexandru.roman@uipath.com's workspace/Nutritional adviser",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "17fc9c26-41b2-4208-ad6a-ea95f201bd1c",
+      "Name": "Order-to-Cash",
+      "Path": "alexandru.roman@uipath.com's workspace/Order-to-Cash",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "513f1e9a-e4d2-4d30-b94a-0ba3e11f4200",
+      "Name": "Order-to-Cash 1",
+      "Path": "alexandru.roman@uipath.com's workspace/Order-to-Cash 1",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "b2192e15-d29b-4318-b177-cfbae8024d83",
+      "Name": "Performance Sample",
+      "Path": "alexandru.roman@uipath.com's workspace/Performance Sample",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "1b479eef-afe4-4c85-b0a3-ff20360f02ec",
+      "Name": "Producer Consumer Solution",
+      "Path": "alexandru.roman@uipath.com's workspace/Producer Consumer Solution",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "24c9058c-1111-4af0-9f05-a0eef7d1d50c",
+      "Name": "Sol Testing",
+      "Path": "alexandru.roman@uipath.com's workspace/Sol Testing",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "3533256e-97c9-4134-959a-c43e5c4860f9",
+      "Name": "Solution Folder TTTT",
+      "Path": "alexandru.roman@uipath.com's workspace/Solution Folder TTTT",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "97c256ca-22a4-4518-9ba3-4ee7270af44d",
+      "Name": "action center",
+      "Path": "alexandru.roman@uipath.com's workspace/action center",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "4029efab-27cf-42ee-8984-b33452eabc04"
+    },
+    {
+      "Key": "207bbc2e-e1a2-413a-b256-4779b2ad1c1b",
+      "Name": "Agent",
+      "Path": "Agent",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": ""
+    },
+    {
+      "Key": "7a493f0c-e2a3-4faa-8ba7-634f2b1cc759",
+      "Name": "Cit Dev",
+      "Path": "Cit Dev",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": ""
+    },
+    {
+      "Key": "4d38f6fe-b6b7-4ffb-9e2a-e9a1fe219a6c",
+      "Name": "Claude",
+      "Path": "Claude",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": ""
+    },
+    {
+      "Key": "c90f9e4e-23e6-45e5-9c6b-213c9b7f31ad",
+      "Name": "Default",
+      "Path": "Default",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": ""
+    },
+    {
+      "Key": "0d7f4def-ffd4-4843-b772-bbe3b8fb9868",
+      "Name": "DevCon26",
+      "Path": "DevCon26",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": ""
+    },
+    {
+      "Key": "a4228993-7839-4f4f-b103-b0fbe1fec2a0",
+      "Name": "HR Folder",
+      "Path": "HR Folder",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": ""
+    },
+    {
+      "Key": "97ed1de1-fe9e-4d7e-be0c-7490af2a45d5",
+      "Name": "Admins",
+      "Path": "HR Folder/Admins",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": "a4228993-7839-4f4f-b103-b0fbe1fec2a0"
+    },
+    {
+      "Key": "ba56226d-a9d7-4c1d-b0c9-79a51088e67d",
+      "Name": "Recruiters",
+      "Path": "HR Folder/Recruiters",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": "a4228993-7839-4f4f-b103-b0fbe1fec2a0"
+    },
+    {
+      "Key": "e393d130-94b2-40e3-8a61-b576401b7b27",
+      "Name": "EMEA",
+      "Path": "HR Folder/Recruiters/EMEA",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": "ba56226d-a9d7-4c1d-b0c9-79a51088e67d"
+    },
+    {
+      "Key": "54e562ce-24a0-418c-9581-80c8d41af471",
+      "Name": "Romania",
+      "Path": "HR Folder/Recruiters/EMEA/Romania",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": "e393d130-94b2-40e3-8a61-b576401b7b27"
+    },
+    {
+      "Key": "df8ff214-7426-4820-9874-ea34dc083aaf",
+      "Name": "Onboard Solution",
+      "Path": "Onboard Solution",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": ""
+    },
+    {
+      "Key": "d4ddca05-0d89-4c72-89a3-2325aa8cf1a4",
+      "Name": "Order-to-Cash",
+      "Path": "Order-to-Cash",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": ""
+    },
+    {
+      "Key": "84dfc51b-a12f-4ba7-a4bd-23a93e9fd34e",
+      "Name": "Pipelines",
+      "Path": "Pipelines",
+      "Description": "Reserved folder for Automation Ops Pipelines",
+      "Type": "Standard",
+      "ParentKey": ""
+    },
+    {
+      "Key": "d53445d3-702c-48d1-98b0-f5f963409356",
+      "Name": "Shared",
+      "Path": "Shared",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": ""
+    },
+    {
+      "Key": "590cac13-eaec-4796-86af-4ff0d680be2d",
+      "Name": "Sol Testing",
+      "Path": "Sol Testing",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": ""
+    },
+    {
+      "Key": "214943fb-4843-4bc8-9531-55630758c76f",
+      "Name": "Solution Folder saas",
+      "Path": "Solution Folder saas",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": ""
+    },
+    {
+      "Key": "b2cb3e75-4ec2-494b-ab7a-17f87ee38380",
+      "Name": "Tests",
+      "Path": "Tests",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": ""
+    },
+    {
+      "Key": "b064315a-bb4d-4c57-aeb8-1965e43141c5",
+      "Name": "Manage Patients",
+      "Path": "Tests/Manage Patients",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "b2cb3e75-4ec2-494b-ab7a-17f87ee38380"
+    },
+    {
+      "Key": "7709ef1d-a0bd-444e-8fcc-0addaf8e16c6",
+      "Name": "UB Apps Solution",
+      "Path": "UB Apps Solution",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": ""
+    },
+    {
+      "Key": "a179cf72-78cd-43fd-950a-ff2c0ec6c5ad",
+      "Name": "UB Testing",
+      "Path": "UB Testing",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": ""
+    },
+    {
+      "Key": "e98bab2c-9229-4251-883d-2bf9885f25ed",
+      "Name": "Producer Consumer Solution Folder",
+      "Path": "UB Testing/Producer Consumer Solution Folder",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": "a179cf72-78cd-43fd-950a-ff2c0ec6c5ad"
+    },
+    {
+      "Key": "12ef7a81-6389-4557-a6b9-5253af93d639",
+      "Name": "User Info",
+      "Path": "User Info",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": ""
+    },
+    {
+      "Key": "e434e82c-3d9c-446a-a961-b7cbaa12ce30",
+      "Name": "WebHook-FailedJobs",
+      "Path": "WebHook-FailedJobs",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": ""
+    },
+    {
+      "Key": "ade598fb-885b-417f-a3ef-4e1f9dce12eb",
+      "Name": "WebHook-FailedJobs-demo",
+      "Path": "WebHook-FailedJobs-demo",
+      "Description": "",
+      "Type": "Solution",
+      "ParentKey": ""
+    },
+    {
+      "Key": "b7ff25ee-0507-428a-8105-9a604c655010",
+      "Name": "uipath.settings.config",
+      "Path": "uipath.settings.config",
+      "Description": "",
+      "Type": "Standard",
+      "ParentKey": ""
+    }
+  ]
+}

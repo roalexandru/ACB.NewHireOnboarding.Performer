@@ -1,0 +1,86 @@
+{
+  "Result": "Success",
+  "Code": "JobLogs",
+  "Data": [
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:45.479Z",
+      "Message": "ACB.NewHireOnboarding.Performer execution ended"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:45.099Z",
+      "Message": "Process finished due to no more transaction data"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:45.098Z",
+      "Message": "No Transaction Data"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:44.983Z",
+      "Message": "Get the transaction item"
+    },
+    {
+      "Level": "Error",
+      "TimeStamp": "2026-05-14T09:22:44.978Z",
+      "Message": "Business rule exception.API_NOT_PUBLIC: "
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:44.977Z",
+      "Message": "Transaction Ended"
+    },
+    {
+      "Level": "Error",
+      "TimeStamp": "2026-05-14T09:22:44.697Z",
+      "Message": "Throw BusinessRuleException: API_NOT_PUBLIC: \r\nin Framework\\Process.xaml\r\n    at Throw \"Throw BusinessRuleException\"\r\n    at Sequence \"Then\"\r\n    at If \"If Business Exception -- throw to REFramework\"\r\n    at Sequence \"Process Transaction\"\r\n    at Process \"Process\"\r\n"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:44.691Z",
+      "Message": "TXN_LOG TxnId=TXN-20260514091806-E8996 PollId=DEMO-20260514091805 EmployeeId=E8996 Username=kofi.sato HireDate=2026-05-11 PlanYear=2026 Started=2026-05-14T09:22:43.2707211Z Finished=2026-05-14T09:22:44.6851356Z Outcome=BUSINESS_EXCEPTION EnrollmentId= ConfirmationNumber= LinesPosted=0 ExceptionCode=API_NOT_PUBLIC ExceptionDetail= IntakeFormRef=HR014-20260514-32431"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:43.951Z",
+      "Message": "Init complete: BaseUrl + PostingOrder + IRSLimits loaded"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:43.292Z",
+      "Message": "Performer Init: loading assets"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:43.269Z",
+      "Message": "Process: TransactionItem Reference=E8996-2026"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:43.072Z",
+      "Message": "Processing Transaction Number: 1"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:43.067Z",
+      "Message": "Transaction Started"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:42.730Z",
+      "Message": "Get the transaction item"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:39.370Z",
+      "Message": "The primary screen resolution is: 1024 x 768"
+    },
+    {
+      "Level": "Info",
+      "TimeStamp": "2026-05-14T09:22:39.120Z",
+      "Message": "ACB.NewHireOnboarding.Performer execution started"
+    }
+  ]
+}
