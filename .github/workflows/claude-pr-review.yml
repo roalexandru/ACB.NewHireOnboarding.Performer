@@ -44,7 +44,7 @@ jobs:
       # Uses External App client credentials; skipped when the secrets are absent.
       - name: UiPath Cloud login
         if: env.UIPATH_CLIENT_ID != ''
-        run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET
+        run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
 
       - name: Claude Code review
         uses: anthropics/claude-code-action@v1
