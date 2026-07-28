@@ -10,8 +10,10 @@ concurrency:
 
 jobs:
   review:
+    name: Code Review
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: write
@@ -34,19 +36,19 @@ jobs:
           dotnet-version: 8.0.x
 
       # https://docs.uipath.com/coding-agents/standalone/latest/user-guide/install-and-set-up
-      - name: Install UiPath CLI and Claude skills
+      - name: Install UiPath CLI
         run: |
           npm install -g @uipath/cli
-          uip skills install --agent claude
           uip --version
 
-      # Optional: enables uip commands that require UiPath Cloud auth.
-      # Uses External App client credentials; skipped when the secrets are absent.
       - name: UiPath Cloud login
         if: env.UIPATH_CLIENT_ID != ''
         run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
 
-      - name: Claude Code review
+      - name: Install UiPath skills for Claude
+        run: uip skills install --agent claude
+
+      - name: Claude review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -54,35 +56,53 @@ jobs:
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
+            BASE REF: ${{ github.base_ref }}
 
-            Review this pull request. This is a UiPath Studio REFramework project (VB
-            expressions, XAML workflows) — read CLAUDE.md first and hold the diff to
-            its conventions.
+            Review this pull request. This is a UiPath Studio REFramework project
+            (Portable target, VB expressions, XAML workflows). Read CLAUDE.md first and
+            hold the diff to the conventions documented there.
 
             Steps:
-            1. Run `gh pr diff ${{ github.event.pull_request.number }}` to get the changes.
-            2. For every changed .xaml file run
+            1. Run `gh pr diff ${{ github.event.pull_request.number }}` to see the changes.
+               Read at most a handful of changed files for context — do not read endlessly.
+            2. Validate every changed .xaml with
                `uip rpa get-errors --file-path "<file>" --project-dir "."`,
-               then run `uip rpa build "."` once. Report any errors they surface.
-               If a uip command fails because UiPath Cloud auth is not configured,
-               note it in the summary and continue with the manual review.
+               then run `uip rpa build "."` once.
+               Treat a validation or build error as BLOCKING only when it names a file this
+               PR touches. The build on main is currently red for reasons unrelated to any
+               given PR, so mention unrelated pre-existing errors as a footnote at most.
+               If a uip command fails because UiPath Cloud auth is unavailable, note that
+               in the summary and continue with the manual review.
             3. Review the diff for project-specific defects:
-               - unguarded JObject dereferences (any `obj("key")...` without a
-                 `IsNot Nothing` guard)
-               - raw HttpClient usage instead of Framework/HttpGet.xaml / HttpPost.xaml
+               - unguarded JObject dereferences (`obj("key")...` with no `IsNot Nothing` guard)
+               - raw HttpClient instead of Framework/HttpGet.xaml / HttpPost.xaml
                - edits to do-not-modify stock files (Main.xaml, GetTransactionData.xaml)
-               - violations of BR-05 posting order or changed exception codes /
+               - BR-05 posting-order violations, changed exception codes, or a broken
                  queue contract
-               - general correctness, naming, and CLAUDE.md comment rules
-            4. Post feedback:
-               - Use mcp__github_inline_comment__create_inline_comment for
-                 file/line-specific findings, with a concrete suggested fix.
+               - hardcoded values that belong in Data/Config.xlsx or an Orchestrator asset
+               - correctness, error handling, naming, and the CLAUDE.md comment rules
+            4. Post your feedback:
+               - Use mcp__github_inline_comment__create_inline_comment for findings tied to
+                 a specific file and line. Include a concrete suggested fix.
                - Post one summary comment with `gh pr comment`: verdict first
-                 (approve / needs changes), then blocking issues, then minor notes.
-               - If there are blocking issues, explicitly ask the author for code
-                 changes and list exactly what must change before merge.
+                 (approve / needs changes), then blocking issues, then minor notes. End it
+                 with a line telling the author they can reply `@claude <instruction>` to
+                 have the changes applied.
+               - If anything is blocking, state plainly what must change before merge.
+            5. Finally, write a single word to review-verdict.txt in the repo root:
+               BLOCKERS if you found any blocking issue, otherwise CLEAN.
 
-            Only comment on genuine issues — do not pad the review with praise or
-            restatements of the diff. If the PR is clean, say so in one short comment.
+            Only report genuine problems. No praise, no restating the diff. If the PR is
+            clean, say so in one short comment.
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(uip:*)"
+            --max-turns 60
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(uip:*),Write"
+
+      - name: Fail the check on blocking findings
+        if: always()
+        run: |
+          if [ -f review-verdict.txt ] && grep -qi blockers review-verdict.txt; then
+            echo "::error::Claude flagged blocking issues — see the PR review comments."
+            exit 1
+          fi
+          echo "No blocking issues flagged."

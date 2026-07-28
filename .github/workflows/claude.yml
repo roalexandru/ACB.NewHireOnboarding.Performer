@@ -1,0 +1,89 @@
+name: Claude Code
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    name: Claude
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    env:
+      UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
+      UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+    steps:
+      # The action gates on write access too; this fails fast and keeps the reason visible.
+      - name: Check commenter is a collaborator
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const assoc = context.payload.comment?.author_association
+              ?? context.payload.review?.author_association;
+            if (!['OWNER', 'MEMBER', 'COLLABORATOR'].includes(assoc)) {
+              core.setFailed(`Author association ${assoc} is not permitted to invoke Claude.`);
+            }
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # https://docs.uipath.com/coding-agents/standalone/latest/user-guide/install-and-set-up
+      - name: Install UiPath CLI
+        run: |
+          npm install -g @uipath/cli
+          uip --version
+
+      - name: UiPath Cloud login
+        if: env.UIPATH_CLIENT_ID != ''
+        run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
+
+      - name: Install UiPath skills for Claude
+        run: uip skills install --agent claude
+
+      - name: Run Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          prompt: |
+            A collaborator mentioned you on ${{ github.repository }}. Do what they asked.
+
+            This is a UiPath Studio REFramework project (Portable target, VB expressions,
+            XAML workflows). Read CLAUDE.md before changing anything and follow its
+            conventions — especially the JObject guarding pattern, the HttpGet/HttpPost
+            wrappers, the do-not-modify file list, and the comment rules.
+
+            Rules:
+            - Read the relevant files before editing. Change only what is necessary.
+            - After editing any .xaml, validate it with
+              `uip rpa get-errors --file-path "<file>" --project-dir "."` and run
+              `uip rpa build "."` before you commit. Do not commit a workflow that fails
+              validation — fix it or explain why you cannot.
+            - If you make changes, commit them with a descriptive message and push to the
+              PR branch.
+            - If you cannot make a change confidently, explain why instead of guessing.
+            - Finish with a brief summary of what you did.
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash"
