@@ -167,7 +167,7 @@ business pipeline lives outside the stock files:
 
 | Path | Role |
 |---|---|
-| `Main.xaml` | REF state machine entry. Reads `Data/Config.xlsx` `OrchestratorQueueName = NewHireBenefitsPosting`. **Do not modify.** |
+| `Main.xaml` | REF state machine entry. Reads `Data/Config.xlsx` `OrchestratorQueueName = NewHireBenefitsPosting`. **Do not modify**, with one Portable-target exception already applied: the "Log Message screen resolution" activity was removed because `Screen.PrimaryScreen` (`System.Windows.Forms`) does not resolve off Windows and broke `uip rpa build` on Linux CI runners. |
 | `Framework/InitAllSettings.xaml` | Stock REF — reads Config.xlsx into `in_Config`. |
 | `Framework/InitAllApplications.xaml` | Stock REF — empty in v1 (asset load lives in `InitWorkflow.xaml`). |
 | `Framework/GetTransactionData.xaml` | Stock REF — `GetTransactionItem` against the queue. **Do not modify.** |
