@@ -58,8 +58,17 @@ jobs:
         if: env.UIPATH_CLIENT_ID != ''
         run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
 
+      # uip skills install --agent claude requires the claude binary on PATH.
+      # claude-code-action installs its own copy, but that happens too late for this step.
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+
       - name: Install UiPath skills for Claude
-        run: uip skills install --agent claude
+        run: |
+          uip skills install --agent claude
+          ls -1 ~/.claude/skills 2>/dev/null || echo "no skills directory"
 
       - name: Run Claude
         uses: anthropics/claude-code-action@v1
@@ -80,6 +89,10 @@ jobs:
               `uip rpa get-errors --file-path "<file>" --project-dir "."` and run
               `uip rpa build "."` before you commit. Do not commit a workflow that fails
               validation — fix it or explain why you cannot.
+            - `uip rpa build` consumes the tracked entry-points.json as a packaging
+              artifact and leaves it deleted. Always run
+              `git checkout -- entry-points.json` after a build, and never commit its
+              deletion.
             - If you make changes, commit them with a descriptive message and push to the
               PR branch.
             - If you cannot make a change confidently, explain why instead of guessing.

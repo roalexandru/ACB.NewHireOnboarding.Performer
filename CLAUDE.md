@@ -4,7 +4,7 @@ Guidance for Claude Code working in this repo.
 
 ## Project type
 
-UiPath Studio Process project, REFramework 25.10 layout, Windows target, VB expression language.
+UiPath Studio Process project, REFramework 25.10 layout, Portable target, VB expression language.
 Consumer half of the New-Hire Benefits Posting solution (PDD ACB-BEN-PDD-0007). Drains the
 `NewHireBenefitsPosting` Orchestrator queue and posts each new hire's elections to the
 BenefitConnect partner API.
