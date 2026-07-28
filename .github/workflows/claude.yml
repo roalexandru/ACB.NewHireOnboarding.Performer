@@ -26,6 +26,7 @@ jobs:
     env:
       UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
       UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       # The action gates on write access too; this fails fast and keeps the reason visible.
       - name: Check commenter is a collaborator
@@ -74,6 +75,9 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Without this the action tries to mint a token via the Claude GitHub App and
+          # fails with 401 unless that App is installed on the repo.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           track_progress: true
           prompt: |
             A collaborator mentioned you on ${{ github.repository }}. Do what they asked.

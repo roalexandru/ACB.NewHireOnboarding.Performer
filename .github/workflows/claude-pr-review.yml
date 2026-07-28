@@ -23,6 +23,7 @@ jobs:
     env:
       UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
       UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,7 +62,12 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Without this the action tries to mint a token via the Claude GitHub App and
+          # fails with 401 unless that App is installed on the repo.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           track_progress: true
+          # One rolling comment instead of a fresh one on every push to the PR.
+          use_sticky_comment: true
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
