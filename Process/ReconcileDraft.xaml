@@ -111,6 +111,7 @@
               </scg:Dictionary>
             </sap:WorkflowViewStateService.ViewState>
           </Assign>
+          <ui:LogMessage DisplayName="Log draft freshness" sap:VirtualizedContainerService.HintSize="480,48" sap2010:WorkflowViewState.IdRef="LogMessage_1" Level="Trace" Message="[&quot;C-08: draft for &quot; &amp; draft(&quot;employeeId&quot;).ToString &amp; &quot; last updated &quot; &amp; draft(&quot;updatedAt&quot;).ToString]" />
           <If Condition="[draftLineCount = in_ExpectedLineCount]" DisplayName="Counts match?" sap:VirtualizedContainerService.HintSize="480,312" sap2010:WorkflowViewState.IdRef="If_1">
             <If.Then>
               <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_1">
