@@ -23,6 +23,7 @@ jobs:
     env:
       UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
       UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,14 +46,29 @@ jobs:
         if: env.UIPATH_CLIENT_ID != ''
         run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
 
+      # uip skills install --agent claude requires the claude binary on PATH.
+      # claude-code-action installs its own copy, but that happens too late for this step.
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+
       - name: Install UiPath skills for Claude
-        run: uip skills install --agent claude
+        run: |
+          uip skills install --agent claude
+          ls -1 ~/.claude/skills 2>/dev/null || echo "no skills directory"
 
       - name: Claude review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Without this the action tries to mint a token via the Claude GitHub App and
+          # fails with 401 unless that App is installed on the repo. Same token as the
+          # job-level GH_TOKEN, which is what the gh CLI reads inside Claude's Bash calls.
+          github_token: ${{ github.token }}
           track_progress: true
+          # One rolling comment instead of a fresh one on every push to the PR.
+          use_sticky_comment: true
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}

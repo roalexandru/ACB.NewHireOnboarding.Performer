@@ -26,6 +26,7 @@ jobs:
     env:
       UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
       UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       # The action gates on write access too; this fails fast and keeps the reason visible.
       - name: Check commenter is a collaborator
@@ -58,13 +59,26 @@ jobs:
         if: env.UIPATH_CLIENT_ID != ''
         run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
 
+      # uip skills install --agent claude requires the claude binary on PATH.
+      # claude-code-action installs its own copy, but that happens too late for this step.
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+
       - name: Install UiPath skills for Claude
-        run: uip skills install --agent claude
+        run: |
+          uip skills install --agent claude
+          ls -1 ~/.claude/skills 2>/dev/null || echo "no skills directory"
 
       - name: Run Claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Without this the action tries to mint a token via the Claude GitHub App and
+          # fails with 401 unless that App is installed on the repo. Same token as the
+          # job-level GH_TOKEN, which is what the gh CLI reads inside Claude's Bash calls.
+          github_token: ${{ github.token }}
           track_progress: true
           prompt: |
             A collaborator mentioned you on ${{ github.repository }}. Do what they asked.
@@ -80,9 +94,17 @@ jobs:
               `uip rpa get-errors --file-path "<file>" --project-dir "."` and run
               `uip rpa build "."` before you commit. Do not commit a workflow that fails
               validation — fix it or explain why you cannot.
+            - `uip rpa build` consumes the tracked entry-points.json as a packaging
+              artifact and leaves it deleted. Always run
+              `git checkout -- entry-points.json` after a build, and never commit its
+              deletion.
             - If you make changes, commit them with a descriptive message and push to the
               PR branch.
             - If you cannot make a change confidently, explain why instead of guessing.
+            - You cannot edit anything under .github/workflows/ — the workflow token has no
+              `workflow` scope, so the push would be rejected. If asked to change a
+              workflow, say so and describe the change instead of attempting it; the
+              maintainer applies workflow edits from their own machine.
             - Finish with a brief summary of what you did.
           claude_args: |
             --max-turns 60

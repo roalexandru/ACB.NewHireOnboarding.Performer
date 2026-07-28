@@ -4,7 +4,7 @@ Guidance for Claude Code working in this repo.
 
 ## Project type
 
-UiPath Studio Process project, REFramework 25.10 layout, Windows target, VB expression language.
+UiPath Studio Process project, REFramework 25.10 layout, Portable target, VB expression language.
 Consumer half of the New-Hire Benefits Posting solution (PDD ACB-BEN-PDD-0007). Drains the
 `NewHireBenefitsPosting` Orchestrator queue and posts each new hire's elections to the
 BenefitConnect partner API.
@@ -167,7 +167,7 @@ business pipeline lives outside the stock files:
 
 | Path | Role |
 |---|---|
-| `Main.xaml` | REF state machine entry. Reads `Data/Config.xlsx` `OrchestratorQueueName = NewHireBenefitsPosting`. **Do not modify.** |
+| `Main.xaml` | REF state machine entry. Reads `Data/Config.xlsx` `OrchestratorQueueName = NewHireBenefitsPosting`. **Do not modify**, with one Portable-target exception already applied: the "Log Message screen resolution" activity was removed because `Screen.PrimaryScreen` (`System.Windows.Forms`) does not resolve off Windows and broke `uip rpa build` on Linux CI runners. |
 | `Framework/InitAllSettings.xaml` | Stock REF — reads Config.xlsx into `in_Config`. |
 | `Framework/InitAllApplications.xaml` | Stock REF — empty in v1 (asset load lives in `InitWorkflow.xaml`). |
 | `Framework/GetTransactionData.xaml` | Stock REF — `GetTransactionItem` against the queue. **Do not modify.** |
