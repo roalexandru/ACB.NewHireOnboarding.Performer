@@ -114,7 +114,12 @@ jobs:
 
       # Oldest-first, so a backlog drains in the order it happened rather than the
       # newest failure starving the ones behind it.
-      - name: Find an untriaged faulted job
+      #
+      # State=Faulted alone is not enough. Data/Config.xlsx sets
+      # ShouldMarkJobAsFaulted=False, so a run whose transaction blew up still reports
+      # Successful -- a Faulted-only filter finds nothing here, forever, while looking
+      # perfectly healthy. A Fatal log entry is the signal that actually fires.
+      - name: Find an untriaged failure
         id: poll
         if: github.event_name == 'schedule'
         env:
@@ -122,34 +127,53 @@ jobs:
         run: |
           set -euo pipefail
           SINCE=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
-          if ! uip or jobs list \
-                 --folder-path "$FOLDER" \
-                 --state Faulted \
-                 --ended-after "$SINCE" \
-                 --limit 20 \
-                 --output json \
-                 --output-filter '[].{Key:Key,State:State,EndTime:EndTime,ReleaseName:ReleaseName}' \
-                 > "$RUNNER_TEMP/faulted.json"; then
-            echo "::warning::Could not list faulted jobs in $FOLDER; skipping this poll."
-            echo "job_key=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
           # --output-filter may hand back the bare array or leave the response
           # envelope on it, and `.Data` on an array is a jq error, not a null.
           JQ='if type == "array" then . else (.Data // []) end | sort_by(.EndTime) | .[]?.Key // empty'
-          for KEY in $(jq -r "$JQ" "$RUNNER_TEMP/faulted.json" 2>/dev/null); do
-            SHORT="${KEY%%-*}"
-            # Filed on main, or a triage branch is already open for it.
-            [ -f "Documentation/incidents/job-$SHORT.md" ] && continue
-            git ls-remote --exit-code --heads origin "fix/job-$SHORT-*" >/dev/null 2>&1 && continue
+
+          list_state() {
+            uip or jobs list \
+              --folder-path "$FOLDER" \
+              --state "$1" \
+              --ended-after "$SINCE" \
+              --limit 20 \
+              --output json \
+              --output-filter '[].{Key:Key,State:State,EndTime:EndTime}' \
+              > "$RUNNER_TEMP/$1.json" 2>/dev/null \
+              || echo '{"Data":[]}' > "$RUNNER_TEMP/$1.json"
+          }
+
+          # Explicit ifs, not `[ ... ] && return 1` -- a trailing false test would make
+          # the function return non-zero and silently mean the opposite.
+          untriaged() {
+            local short="${1%%-*}"
+            if [ -f "Documentation/incidents/job-$short.md" ]; then return 1; fi
+            if git ls-remote --exit-code --heads origin "fix/job-$short-*" >/dev/null 2>&1; then return 1; fi
+            return 0
+          }
+
+          list_state Faulted
+          list_state Successful
+
+          for KEY in $(jq -r "$JQ" "$RUNNER_TEMP/Faulted.json" 2>/dev/null); do
+            untriaged "$KEY" || continue
             echo "job_key=$KEY" >> "$GITHUB_OUTPUT"
             echo "::notice::Picked up faulted job $KEY"
             exit 0
           done
 
+          # Only reached for jobs not already filed, so the log lookup stays cheap.
+          for KEY in $(jq -r "$JQ" "$RUNNER_TEMP/Successful.json" 2>/dev/null); do
+            untriaged "$KEY" || continue
+            uip or jobs logs "$KEY" --level Fatal --limit 1 --output json \
+              --output-filter '[].{Level:Level}' 2>/dev/null | grep -q '"Level"' || continue
+            echo "job_key=$KEY" >> "$GITHUB_OUTPUT"
+            echo "::notice::Picked up job $KEY -- reported Successful but logged Fatal"
+            exit 0
+          done
+
           echo "job_key=" >> "$GITHUB_OUTPUT"
-          echo "No untriaged faulted job in $FOLDER in the last 24h."
+          echo "No untriaged failure in $FOLDER in the last 24h."
 
       # One GUID check for all three paths — it is also the sanitation gate before any
       # of this reaches a shell or a branch name.
@@ -226,21 +250,45 @@ jobs:
       # run would burn 80 turns and land on UNCONFIRMED. Fail here with the reason.
       # An empty log list is fine; only a failing command is fatal.
       - name: Preflight — job and logs are readable
+        id: preflight
         env:
           JOB_KEY: ${{ needs.resolve.outputs.job_key }}
+          FOLDER: ${{ needs.resolve.outputs.folder_path }}
         run: |
           set -euo pipefail
-          if ! uip or jobs get "$JOB_KEY" --output json --output-filter '{State:State,Release:ReleaseName}' 2>"$RUNNER_TEMP/job.err"; then
+          if ! uip or jobs get "$JOB_KEY" --output json --output-filter '{State:State,Release:ReleaseName}' > "$RUNNER_TEMP/job.json" 2>"$RUNNER_TEMP/job.err"; then
             echo "::error::Cannot read job $JOB_KEY. Check the key is real and that the CI external app has OR.Jobs.Read."
             cat "$RUNNER_TEMP/job.err" || true
             exit 1
           fi
+          cat "$RUNNER_TEMP/job.json"
           if ! uip or jobs logs "$JOB_KEY" --limit 1 --output json --output-filter '[].{Level:Level}' >/dev/null 2>"$RUNNER_TEMP/logs.err"; then
             echo "::error::Cannot read execution logs for $JOB_KEY. The investigation needs them to confirm a runtime root cause. The CI external app most likely lacks OR.Monitoring.Read."
             cat "$RUNNER_TEMP/logs.err" || true
             exit 1
           fi
           echo "Job record and execution logs are both readable."
+
+          # The robot runs whatever version the process is pinned to, which can be far
+          # behind this checkout -- reasoning about HEAD would then describe code that
+          # never executed. Surface the skew so the investigation can qualify itself.
+          RELEASE=$(jq -r 'if type == "object" and has("Data") then .Data else . end | .Release // ""' "$RUNNER_TEMP/job.json")
+          REPO_VER=$(jq -r '.projectVersion // ""' project.json)
+          uip or processes list --folder-path "$FOLDER" --output json \
+            --output-filter '[].{Name:Name,Version:ProcessVersion}' \
+            > "$RUNNER_TEMP/procs.json" 2>/dev/null || echo '{"Data":[]}' > "$RUNNER_TEMP/procs.json"
+          RUN_VER=$(jq -r --arg n "$RELEASE" 'if type == "array" then . else (.Data // []) end | map(select(.Name == $n)) | .[0].Version // ""' "$RUNNER_TEMP/procs.json")
+
+          {
+            echo "run_version=$RUN_VER"
+            echo "repo_version=$REPO_VER"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ -n "$RUN_VER" ] && [ -n "$REPO_VER" ] && [ "$RUN_VER" != "$REPO_VER" ]; then
+            echo "::warning::Deployed $RELEASE is $RUN_VER but this checkout is $REPO_VER — source here may not be the code that ran."
+          else
+            echo "Deployed version: ${RUN_VER:-unknown}; checkout: ${REPO_VER:-unknown}."
+          fi
 
       # uip skills install --agent claude requires the claude binary on PATH.
       # claude-code-action installs its own copy, but that happens too late for this step.
@@ -270,12 +318,24 @@ jobs:
           github_token: ${{ github.token }}
           prompt: |
             REPO: ${{ github.repository }}
-            FAULTED JOB KEY: ${{ needs.resolve.outputs.job_key }}
+            JOB KEY: ${{ needs.resolve.outputs.job_key }}
             ORCHESTRATOR FOLDER: ${{ needs.resolve.outputs.folder_path }}
+            DEPLOYED PROCESS VERSION: ${{ steps.preflight.outputs.run_version }}
+            THIS CHECKOUT (project.json): ${{ steps.preflight.outputs.repo_version }}
 
-            Find out why this Orchestrator job faulted and write the diagnosis up.
+            Find out why this Orchestrator job failed and write the diagnosis up.
             Do not change any workflow source in this run — a separate job applies
             the fix.
+
+            The job may report state Successful and still be a failure: this project
+            sets ShouldMarkJobAsFaulted=False, so a blown transaction leaves the job
+            green with a Fatal entry in its logs. Do not treat "State: Successful" as
+            proof nothing went wrong; read the logs.
+
+            If the two version lines above differ, the robot ran code that is NOT what
+            is checked out here. Say so in the report, and treat any conclusion drawn
+            from reading source as provisional until it is corroborated by runtime
+            evidence.
 
             1. Load the uipath-troubleshoot skill and follow its protocol. It ships in
                the `uipath` plugin, so it is listed as `uipath:uipath-troubleshoot` —
