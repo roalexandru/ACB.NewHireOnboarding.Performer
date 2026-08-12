@@ -1,0 +1,542 @@
+name: Claude Job Failure Triage
+
+# Investigates a faulted Orchestrator job with the `uipath-troubleshoot` skill, then
+# attempts the source fix and opens a PR carrying the diagnosis.
+#
+# Diagnosis and remediation are two separate agent runs on purpose. The troubleshoot
+# skill never edits source artifacts itself — applying a fix is behind an interactive
+# approval gate that does not exist on a runner, and its documented behaviour when
+# that gate is unavailable is "present the fix as text and stop". So job 2 is a fresh
+# agent that checks main out again and treats the report as its spec; nothing the
+# investigator touched on disk can leak into the PR.
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_key:
+        description: Orchestrator job key (GUID) of the faulted job
+        required: true
+        type: string
+      folder_path:
+        description: Orchestrator folder the job ran in
+        required: true
+        default: CodingAgentsDemos
+        type: string
+      apply_fix:
+        description: Attempt a source fix and open a PR
+        required: false
+        default: true
+        type: boolean
+  # Push path. Orchestrator cannot POST here itself — /dispatches needs an
+  # Authorization header and this exact body shape, and an Orchestrator webhook sends
+  # its own payload with no custom headers. Something in between has to translate,
+  # e.g. the dispatch-error-agent in the uipath-support-agent solution:
+  #   gh api repos/{owner}/{repo}/dispatches -f event_type=job-failure \
+  #     -F 'client_payload[job_key]=<guid>' -F 'client_payload[folder_path]=CodingAgentsDemos'
+  # The caller needs its own GitHub credential (PAT or App installation token) only
+  # because it runs outside Actions, where GITHUB_TOKEN does not exist —
+  # repository_dispatch is itself one of the two events a GITHUB_TOKEN may raise.
+  repository_dispatch:
+    types: [job-failure]
+
+  # Poll path. Needs no Orchestrator-side wiring at all: it asks Orchestrator for
+  # faulted jobs and triages the oldest one it has not already filed.
+  schedule:
+    - cron: '*/30 * * * *'
+
+# Scheduled runs all share one slot so a poll cannot pick up a job the previous poll
+# is still triaging — its dedupe branch does not exist yet at that point.
+concurrency:
+  group: job-triage-${{ github.event.inputs.job_key || github.event.client_payload.job_key || 'scheduled' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+  actions: read
+
+jobs:
+  resolve:
+    name: Resolve job reference
+    runs-on: ubuntu-latest
+    outputs:
+      found: ${{ steps.select.outputs.found }}
+      job_key: ${{ steps.select.outputs.job_key }}
+      folder_path: ${{ steps.args.outputs.folder_path }}
+      apply_fix: ${{ steps.args.outputs.apply_fix }}
+      short_key: ${{ steps.select.outputs.short_key }}
+    env:
+      UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
+      UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+    steps:
+      # Needed by the poll path to tell an already-filed failure from a new one.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The three trigger shapes carry the same values in different places; the poll
+      # path carries none and has to go ask Orchestrator.
+      - name: Normalize trigger inputs
+        id: args
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WD_JOB_KEY: ${{ inputs.job_key }}
+          WD_FOLDER: ${{ inputs.folder_path }}
+          WD_APPLY_FIX: ${{ inputs.apply_fix }}
+          RD_JOB_KEY: ${{ github.event.client_payload.job_key }}
+          RD_FOLDER: ${{ github.event.client_payload.folder_path }}
+          RD_APPLY_FIX: ${{ github.event.client_payload.apply_fix }}
+        run: |
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            repository_dispatch) JOB_KEY="$RD_JOB_KEY"; FOLDER="$RD_FOLDER"; APPLY="$RD_APPLY_FIX" ;;
+            schedule)            JOB_KEY=""; FOLDER=""; APPLY="" ;;
+            *)                   JOB_KEY="$WD_JOB_KEY"; FOLDER="$WD_FOLDER"; APPLY="$WD_APPLY_FIX" ;;
+          esac
+          FOLDER="${FOLDER:-CodingAgentsDemos}"
+          [ "$APPLY" = "false" ] && APPLY=false || APPLY=true
+
+          {
+            echo "job_key=$JOB_KEY"
+            echo "folder_path=$FOLDER"
+            echo "apply_fix=$APPLY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install UiPath CLI
+        if: github.event_name == 'schedule'
+        run: |
+          npm install -g @uipath/cli
+          uip --version
+
+      - name: UiPath Cloud login
+        if: github.event_name == 'schedule'
+        run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
+
+      # Oldest-first, so a backlog drains in the order it happened rather than the
+      # newest failure starving the ones behind it.
+      - name: Find an untriaged faulted job
+        id: poll
+        if: github.event_name == 'schedule'
+        env:
+          FOLDER: ${{ steps.args.outputs.folder_path }}
+        run: |
+          set -euo pipefail
+          SINCE=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          if ! uip or jobs list \
+                 --folder-path "$FOLDER" \
+                 --state Faulted \
+                 --ended-after "$SINCE" \
+                 --limit 20 \
+                 --output json \
+                 --output-filter '[].{Key:Key,State:State,EndTime:EndTime,ReleaseName:ReleaseName}' \
+                 > "$RUNNER_TEMP/faulted.json"; then
+            echo "::warning::Could not list faulted jobs in $FOLDER; skipping this poll."
+            echo "job_key=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # --output-filter may hand back the bare array or leave the response
+          # envelope on it, and `.Data` on an array is a jq error, not a null.
+          JQ='if type == "array" then . else (.Data // []) end | sort_by(.EndTime) | .[]?.Key // empty'
+          for KEY in $(jq -r "$JQ" "$RUNNER_TEMP/faulted.json" 2>/dev/null); do
+            SHORT="${KEY%%-*}"
+            # Filed on main, or a triage branch is already open for it.
+            [ -f "Documentation/incidents/job-$SHORT.md" ] && continue
+            git ls-remote --exit-code --heads origin "fix/job-$SHORT-*" >/dev/null 2>&1 && continue
+            echo "job_key=$KEY" >> "$GITHUB_OUTPUT"
+            echo "::notice::Picked up faulted job $KEY"
+            exit 0
+          done
+
+          echo "job_key=" >> "$GITHUB_OUTPUT"
+          echo "No untriaged faulted job in $FOLDER in the last 24h."
+
+      # One GUID check for all three paths — it is also the sanitation gate before any
+      # of this reaches a shell or a branch name.
+      - name: Select job
+        id: select
+        env:
+          ARG_JOB_KEY: ${{ steps.args.outputs.job_key }}
+          POLL_JOB_KEY: ${{ steps.poll.outputs.job_key }}
+          IS_SCHEDULE: ${{ github.event_name == 'schedule' }}
+        run: |
+          set -euo pipefail
+          JOB_KEY="${ARG_JOB_KEY:-$POLL_JOB_KEY}"
+
+          if [ -z "$JOB_KEY" ]; then
+            if [ "$IS_SCHEDULE" = "true" ]; then
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              echo "Nothing to triage."
+              exit 0
+            fi
+            echo "::error::No job_key supplied."
+            exit 1
+          fi
+
+          if ! printf '%s' "$JOB_KEY" | grep -qiE '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+            echo "::error::job_key must be an Orchestrator job key GUID; got '$JOB_KEY'"
+            exit 1
+          fi
+
+          {
+            echo "found=true"
+            echo "job_key=$JOB_KEY"
+            echo "short_key=${JOB_KEY%%-*}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Triaging job $JOB_KEY"
+
+  investigate:
+    name: Investigate failure
+    needs: resolve
+    if: needs.resolve.outputs.found == 'true'
+    runs-on: ubuntu-latest
+    # A playbook walk with escalation can run long; the 80-turn cap is the real limit.
+    timeout-minutes: 45
+    outputs:
+      verdict: ${{ steps.verdict.outputs.verdict }}
+    env:
+      UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
+      UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The troubleshoot skill reads workflow source as evidence, and uip rpa needs
+      # the .NET SDK if the investigation ends up validating a file.
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # https://docs.uipath.com/coding-agents/standalone/latest/user-guide/install-and-set-up
+      - name: Install UiPath CLI
+        run: |
+          npm install -g @uipath/cli
+          uip --version
+
+      # Without this every `uip or jobs ...` call fails and there is no evidence to
+      # investigate, so unlike the review workflows this login is not optional.
+      - name: UiPath Cloud login
+        run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
+
+      # The skill's primary evidence is the job's execution logs, and it will not
+      # confirm a root cause from design-time reading alone — without log access every
+      # run would burn 80 turns and land on UNCONFIRMED. Fail here with the reason.
+      # An empty log list is fine; only a failing command is fatal.
+      - name: Preflight — job and logs are readable
+        env:
+          JOB_KEY: ${{ needs.resolve.outputs.job_key }}
+        run: |
+          set -euo pipefail
+          if ! uip or jobs get "$JOB_KEY" --output json --output-filter '{State:State,Release:ReleaseName}' 2>"$RUNNER_TEMP/job.err"; then
+            echo "::error::Cannot read job $JOB_KEY. Check the key is real and that the CI external app has OR.Jobs.Read."
+            cat "$RUNNER_TEMP/job.err" || true
+            exit 1
+          fi
+          if ! uip or jobs logs "$JOB_KEY" --limit 1 --output json --output-filter '[].{Level:Level}' >/dev/null 2>"$RUNNER_TEMP/logs.err"; then
+            echo "::error::Cannot read execution logs for $JOB_KEY. The investigation needs them to confirm a runtime root cause. The CI external app most likely lacks OR.Monitoring.Read."
+            cat "$RUNNER_TEMP/logs.err" || true
+            exit 1
+          fi
+          echo "Job record and execution logs are both readable."
+
+      # uip skills install --agent claude requires the claude binary on PATH.
+      # claude-code-action installs its own copy, but that happens too late for this step.
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+
+      # --agent claude installs these as a plugin, not into ~/.claude/skills, so
+      # listing that directory proves nothing. Without the skill the investigation
+      # silently degrades into improvising, which is worse than failing here.
+      - name: Install UiPath skills for Claude
+        run: |
+          set -euo pipefail
+          uip skills install --agent claude
+          SKILL_DIR=$(find ~/.claude -type d -name uipath-troubleshoot 2>/dev/null | head -1)
+          if [ -z "$SKILL_DIR" ]; then
+            echo "::error::uipath-troubleshoot did not install; aborting rather than guessing at the root cause."
+            exit 1
+          fi
+          echo "Troubleshoot skill at $SKILL_DIR"
+
+      - name: Claude investigation
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            FAULTED JOB KEY: ${{ needs.resolve.outputs.job_key }}
+            ORCHESTRATOR FOLDER: ${{ needs.resolve.outputs.folder_path }}
+
+            Find out why this Orchestrator job faulted and write the diagnosis up.
+            Do not change any workflow source in this run — a separate job applies
+            the fix.
+
+            1. Load the uipath-troubleshoot skill and follow its protocol. It ships in
+               the `uipath` plugin, so it is listed as `uipath:uipath-troubleshoot` —
+               take whichever name the skills listing actually shows. The anchor is
+               already given above, so skip the anchoring questions: the job key and
+               the folder name are both fixed.
+            2. This runner is headless — AskUserQuestion does not exist here. Wherever
+               the skill's contract says to ask the user, take its documented
+               no-gate path instead: record the open question in the report and
+               continue on the evidence you already have. Never edit, and never
+               delegate an edit to, a source artifact.
+            3. Read CLAUDE.md before reading any workflow. This is a UiPath REFramework
+               consumer (Portable target, VB expressions) that drains the
+               NewHireBenefitsPosting queue and posts elections to the BenefitConnect
+               REST API. CLAUDE.md maps every C-step to its endpoint, its exception
+               code and its Process/*.xaml file — use it to turn a faulting activity
+               name into the file and business rule that produced it.
+            4. Write the report to job-failure-analysis.md in the repo root, in this
+               exact shape:
+
+               # Job Failure Report
+
+               | Field | Value |
+               |---|---|
+               | Job key | ... |
+               | Process | ... |
+               | Folder | ... |
+               | State | ... |
+               | Started / Ended | ... |
+               | Faulting activity | ... |
+               | Exception | ... |
+               | Transaction / queue item | ... (or "n/a") |
+
+               ## What went wrong
+               Two or three sentences, plain language, no stack trace.
+
+               ## Root cause
+               The single cause the evidence singles out, plus the workflow file and
+               activity it lives in. If the evidence does not single one out, say so
+               and list the surviving candidates.
+
+               ## Evidence
+               Bullet list. Each bullet cites the concrete datum it rests on — the
+               command that produced it and the field — so a reviewer can re-run it.
+
+               ## Proposed fix
+               The exact change, as file plus before/after expression or property.
+               If the fix is Orchestrator or tenant configuration rather than source
+               (an asset value, a queue setting, a permission), give the `uip` command
+               or the portal path instead and say plainly that no code change applies.
+
+               ## Open questions
+               Anything you could not settle headlessly, and what evidence would settle
+               it. Write "None." if there are none.
+
+            5. Then write exactly one word to triage-verdict.txt in the repo root:
+               SOURCE_FIX   - a specific .xaml change under Process/, Rules/ or
+                              Framework/ would prevent this failure
+               NO_SOURCE_FIX - real root cause, but the fix is config/data/tenant state
+               UNCONFIRMED  - the evidence does not support a single root cause
+
+            Report only what the evidence supports. If a command returns nothing, that
+            is a finding — write it down rather than filling the gap with a plausible
+            story.
+          # Bash is broad because the skill drives the whole uip surface and captures
+          # every response through tee/redirect; a narrow allowlist blocks it mid-run.
+          # Edit is withheld instead, and job 2 checks main out fresh, so nothing this
+          # agent writes can reach the PR.
+          claude_args: |
+            --max-turns 80
+            --allowedTools "Skill,Read,Glob,Grep,Write,Bash"
+
+      - name: Read verdict
+        id: verdict
+        run: |
+          set -euo pipefail
+          if [ ! -f job-failure-analysis.md ]; then
+            echo "::error::The investigation produced no job-failure-analysis.md."
+            exit 1
+          fi
+          VERDICT=$(tr -d '[:space:]' < triage-verdict.txt 2>/dev/null || true)
+          case "$VERDICT" in
+            SOURCE_FIX|NO_SOURCE_FIX|UNCONFIRMED) ;;
+            *) echo "::warning::Unrecognized verdict '$VERDICT'; treating as UNCONFIRMED."
+               VERDICT=UNCONFIRMED ;;
+          esac
+          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          echo "::notice::Triage verdict: $VERDICT"
+          cat job-failure-analysis.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-failure-analysis
+          path: job-failure-analysis.md
+
+      # .local/investigations is where the skill parks the verbatim CLI responses it
+      # reasoned from. It is gitignored, so this artifact is the only way to audit the
+      # diagnosis after the runner is gone.
+      - name: Upload raw investigation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: job-failure-evidence
+          path: .local/investigations
+          if-no-files-found: ignore
+
+  fix-and-pr:
+    name: Attempt fix and open PR
+    needs: [resolve, investigate]
+    if: needs.resolve.outputs.apply_fix == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
+      UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+      # A PR opened with the default token does start Claude PR Review, but the run
+      # parks in "approval required" until someone with write access releases it.
+      # PR_AUTHOR_PAT is optional and buys away only that click.
+      GH_TOKEN: ${{ secrets.PR_AUTHOR_PAT || github.token }}
+      VERDICT: ${{ needs.investigate.outputs.verdict }}
+      # Run number keeps a re-triage of the same job from colliding with the branch
+      # and PR the previous run already pushed.
+      BRANCH: fix/job-${{ needs.resolve.outputs.short_key }}-${{ github.run_number }}
+      REPORT: Documentation/incidents/job-${{ needs.resolve.outputs.short_key }}.md
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Download analysis
+        uses: actions/download-artifact@v4
+        with:
+          name: job-failure-analysis
+          path: ${{ runner.temp }}/triage
+
+      # Committed before the agent runs so the branch always carries the diagnosis,
+      # even when the verdict is NO_SOURCE_FIX and there is nothing to fix.
+      - name: Commit the report
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          mkdir -p Documentation/incidents
+          cp "$RUNNER_TEMP/triage/job-failure-analysis.md" "$REPORT"
+          git add "$REPORT"
+          git commit -m "docs: job ${{ needs.resolve.outputs.short_key }} failure analysis"
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install UiPath CLI
+        run: |
+          npm install -g @uipath/cli
+          uip --version
+
+      - name: UiPath Cloud login
+        if: env.UIPATH_CLIENT_ID != ''
+        run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
+
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+
+      - name: Install UiPath skills for Claude
+        run: |
+          uip skills install --agent claude
+          ls -1 ~/.claude/skills 2>/dev/null || echo "no skills directory"
+
+      - name: Claude fix attempt
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            BRANCH: ${{ env.BRANCH }}
+            ANALYSIS: ${{ env.REPORT }}
+
+            A faulted Orchestrator job has already been investigated. The report at
+            ANALYSIS names the root cause and the fix. Apply that fix.
+
+            This is a UiPath Studio REFramework project (Portable target, VB
+            expressions, XAML workflows). Read CLAUDE.md first and hold yourself to it.
+
+            1. Read the analysis, then read the file its "Proposed fix" section names
+               before touching anything.
+            2. Apply the smallest change that resolves the named root cause. Do not
+               reformat, do not tidy neighbouring activities, do not rename variables
+               the fix does not require. If the real fix turns out to be larger than
+               the report suggests, make the surgical part and describe the rest in
+               your summary rather than expanding the diff.
+            3. Hold the project conventions:
+               - guard every JObject dereference —
+                 `If(obj("k") IsNot Nothing, obj("k").ToString, "(default)")`
+               - all HTTP goes through Framework/HttpGet.xaml or HttpPost.xaml, never
+                 a raw HttpClient dropped into a Process step
+               - Main.xaml and Framework/GetTransactionData.xaml are do-not-modify
+               - keep the queue contract, the BR-05 posting order and the existing
+                 exception codes intact
+               - settings belong in Data/Config.xlsx or an Orchestrator asset, not
+                 hardcoded in a workflow
+               - comments only where the code genuinely needs the context
+            4. Validate before committing: run
+               `uip rpa get-errors --file-path "<file>" --project-dir "."` on every
+               .xaml you touched, then `uip rpa build "."` once. Do not commit a
+               workflow that fails validation — fix it, or stop and explain why you
+               cannot.
+            5. `uip rpa build` consumes the tracked entry-points.json as a packaging
+               artifact and leaves it deleted. Run `git checkout -- entry-points.json`
+               after the build and never commit its deletion.
+            6. Commit to the current branch with a `fix:` subject under 72 characters.
+               Stage only the files you changed. Do not amend or push — the workflow
+               pushes. Leave ${{ env.REPORT }} exactly as it is.
+            7. You cannot edit anything under .github/workflows/ — the token has no
+               `workflow` scope and the push would be rejected.
+            8. Finish with a short summary: what you changed, and what validation said.
+
+            If the report's verdict does not actually hold up once you read the code,
+            do not invent a different fix — say so and leave the code alone.
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Skill,Read,Edit,Write,Glob,Grep,Bash"
+
+      - name: Push branch
+        run: git push --set-upstream origin "$BRANCH"
+
+      - name: Open PR
+        run: |
+          set -euo pipefail
+          case "$VERDICT" in
+            SOURCE_FIX)
+              if git diff --quiet main..HEAD -- ':!Documentation/incidents'; then
+                TITLE="docs: job ${{ needs.resolve.outputs.short_key }} failure analysis (fix not applied)"
+                NOTE=$'> [!WARNING]\n> The investigation proposed a source fix but the agent did not commit one. Review the analysis and apply it by hand.'
+              else
+                # Scoped to this branch — an unscoped --grep would happily title the
+                # PR with some unrelated `fix:` commit from main's history.
+                TITLE=$(git log --pretty=%s -1 --grep '^fix:' main..HEAD || true)
+                TITLE="${TITLE:-fix: job ${{ needs.resolve.outputs.short_key }} failure}"
+                NOTE=$'> [!NOTE]\n> Fix applied by an agent from the analysis below. It is validated, not verified — re-run the transaction before merging.'
+              fi ;;
+            NO_SOURCE_FIX)
+              TITLE="docs: job ${{ needs.resolve.outputs.short_key }} failure analysis (config fix)"
+              NOTE=$'> [!IMPORTANT]\n> Root cause is configuration or tenant state, not code. No source change was made — see "Proposed fix" for the command or portal path to run.' ;;
+            *)
+              TITLE="docs: job ${{ needs.resolve.outputs.short_key }} failure analysis (unconfirmed)"
+              NOTE=$'> [!WARNING]\n> The evidence did not single out one root cause. See "Open questions" for what would settle it.' ;;
+          esac
+
+          { printf '%s\n\n' "$NOTE"; cat "$REPORT"; } > "$RUNNER_TEMP/pr-body.md"
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "$TITLE" \
+            --body-file "$RUNNER_TEMP/pr-body.md"
