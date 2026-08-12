@@ -102,7 +102,7 @@
               </scg:Dictionary>
             </sap:WorkflowViewStateService.ViewState>
           </ui:DeserializeJson>
-          <If Condition="[String.Equals(employee(&quot;employeeId&quot;).ToString(), in_EmployeeId, StringComparison.OrdinalIgnoreCase)]" DisplayName="Id matches?" sap:VirtualizedContainerService.HintSize="480,264" sap2010:WorkflowViewState.IdRef="If_1">
+          <If Condition="[employee IsNot Nothing AndAlso employee(&quot;id&quot;) IsNot Nothing AndAlso String.Equals(employee(&quot;id&quot;).ToString(), in_EmployeeId, StringComparison.OrdinalIgnoreCase)]" DisplayName="Id matches?" sap:VirtualizedContainerService.HintSize="480,264" sap2010:WorkflowViewState.IdRef="If_1">
             <If.Then>
               <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_1">
                 <sap:WorkflowViewStateService.ViewState>
