@@ -33,8 +33,9 @@ on:
   # e.g. the dispatch-error-agent in the uipath-support-agent solution:
   #   gh api repos/{owner}/{repo}/dispatches -f event_type=job-failure \
   #     -F 'client_payload[job_key]=<guid>' -F 'client_payload[folder_path]=DevCon26'
-  # The caller must authenticate with a PAT — a repository_dispatch sent with the
-  # built-in GITHUB_TOKEN is deliberately ignored by Actions and starts no run.
+  # The caller needs its own GitHub credential (PAT or App installation token) only
+  # because it runs outside Actions, where GITHUB_TOKEN does not exist —
+  # repository_dispatch is itself one of the two events a GITHUB_TOKEN may raise.
   repository_dispatch:
     types: [job-failure]
 
@@ -227,10 +228,19 @@ jobs:
           npm install -g @anthropic-ai/claude-code
           claude --version
 
+      # --agent claude installs these as a plugin, not into ~/.claude/skills, so
+      # listing that directory proves nothing. Without the skill the investigation
+      # silently degrades into improvising, which is worse than failing here.
       - name: Install UiPath skills for Claude
         run: |
+          set -euo pipefail
           uip skills install --agent claude
-          ls -1 ~/.claude/skills 2>/dev/null || echo "no skills directory"
+          SKILL_DIR=$(find ~/.claude -type d -name uipath-troubleshoot 2>/dev/null | head -1)
+          if [ -z "$SKILL_DIR" ]; then
+            echo "::error::uipath-troubleshoot did not install; aborting rather than guessing at the root cause."
+            exit 1
+          fi
+          echo "Troubleshoot skill at $SKILL_DIR"
 
       - name: Claude investigation
         uses: anthropics/claude-code-action@v1
@@ -246,9 +256,11 @@ jobs:
             Do not change any workflow source in this run — a separate job applies
             the fix.
 
-            1. Load the `uipath-troubleshoot` skill and follow its protocol. The
-               anchor is already given above, so skip the anchoring questions: the
-               job key and the folder name are both fixed.
+            1. Load the uipath-troubleshoot skill and follow its protocol. It ships in
+               the `uipath` plugin, so it is listed as `uipath:uipath-troubleshoot` —
+               take whichever name the skills listing actually shows. The anchor is
+               already given above, so skip the anchoring questions: the job key and
+               the folder name are both fixed.
             2. This runner is headless — AskUserQuestion does not exist here. Wherever
                the skill's contract says to ask the user, take its documented
                no-gate path instead: record the open question in the report and
@@ -359,8 +371,9 @@ jobs:
     env:
       UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
       UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
-      # PRs opened with the default token do not trigger pull_request workflows, so
-      # Claude PR Review stays silent unless PR_AUTHOR_PAT is configured.
+      # A PR opened with the default token does start Claude PR Review, but the run
+      # parks in "approval required" until someone with write access releases it.
+      # PR_AUTHOR_PAT is optional and buys away only that click.
       GH_TOKEN: ${{ secrets.PR_AUTHOR_PAT || github.token }}
       VERDICT: ${{ needs.investigate.outputs.verdict }}
       # Run number keeps a re-triage of the same job from colliding with the branch
