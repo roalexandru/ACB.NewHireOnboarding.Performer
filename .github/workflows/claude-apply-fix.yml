@@ -1,0 +1,243 @@
+name: Claude Apply Fix
+
+# Attempts the source fix for a triage issue filed by Claude Job Failure Triage, and
+# opens a PR if it produces one.
+#
+# The issue IS the contract between the two workflows. This one reads the diagnosis
+# back out of the issue body rather than taking an artifact handoff, so a fix can be
+# retried, or run against an issue filed days ago, without re-investigating — and so a
+# human can read the diagnosis before any agent goes near the source.
+#
+# Deliberately manual. Auto-dispatching this from triage is a one-step change (see the
+# commented block at the end of claude-job-failure.yml's "File the issue"), but the
+# code-fix path has never run end to end, so the gate stays human for now.
+#
+# Note for whoever automates it later: an `issues: labeled` trigger will NOT work. An
+# event raised by the built-in GITHUB_TOKEN starts no workflow run; workflow_dispatch
+# and repository_dispatch are the only two exceptions. Call `gh workflow run` instead.
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Triage issue number to remediate (must be labelled triage:code-fix)
+        required: true
+        type: string
+      force:
+        description: Proceed even if the issue is not labelled triage:code-fix
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: apply-fix-${{ github.event.inputs.issue }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  apply:
+    name: Apply fix and open PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
+      UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+      GH_TOKEN: ${{ secrets.PR_AUTHOR_PAT || github.token }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE: ${{ inputs.issue }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # Refuses anything not marked as a code fix, so a config or external finding
+      # cannot put an agent near the source just because someone typed its number.
+      - name: Read the triage issue
+        id: issue
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          if ! gh issue view "$ISSUE" --repo "$GH_REPO" \
+                 --json number,title,state,labels,body > "$RUNNER_TEMP/issue.json" 2>"$RUNNER_TEMP/issue.err"; then
+            echo "::error::Cannot read issue #$ISSUE."
+            cat "$RUNNER_TEMP/issue.err" || true
+            exit 1
+          fi
+
+          TITLE=$(jq -r '.title' "$RUNNER_TEMP/issue.json")
+          STATE=$(jq -r '.state' "$RUNNER_TEMP/issue.json")
+          HAS_LABEL=$(jq -r '[.labels[].name] | index("triage:code-fix") // "" | tostring' "$RUNNER_TEMP/issue.json")
+          echo "Issue #$ISSUE [$STATE]: $TITLE"
+
+          if [ -z "$HAS_LABEL" ] && [ "$FORCE" != "true" ]; then
+            echo "::error::Issue #$ISSUE is not labelled triage:code-fix. Its root cause is not a source change. Re-run with force=true only if you are sure."
+            exit 1
+          fi
+
+          # The title is "job <short>: ...", and <short> is the job key's first field.
+          SHORT=$(printf '%s' "$TITLE" | grep -oE '\b[0-9a-f]{8}\b' | head -1 || true)
+          if [ -z "$SHORT" ]; then
+            echo "::error::Could not find a job key in the issue title: $TITLE"
+            exit 1
+          fi
+
+          jq -r '.body' "$RUNNER_TEMP/issue.json" > job-failure-analysis.md
+          if [ ! -s job-failure-analysis.md ]; then
+            echo "::error::Issue #$ISSUE has an empty body; nothing to work from."
+            exit 1
+          fi
+          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
+          echo "branch=fix/job-$SHORT-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${{ steps.issue.outputs.branch }}"
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install UiPath CLI
+        run: |
+          npm install -g @uipath/cli
+          uip --version
+
+      # uip rpa build restores packages from the tenant feed, so validation is only
+      # meaningful once this succeeds.
+      - name: UiPath Cloud login
+        if: env.UIPATH_CLIENT_ID != ''
+        run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
+
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+
+      - name: Install UiPath skills for Claude
+        run: |
+          set -euo pipefail
+          uip skills install --agent claude
+          SKILL_DIR=$(find ~/.claude -type d -name uipath-rpa 2>/dev/null | head -1)
+          if [ -z "$SKILL_DIR" ]; then
+            echo "::error::uipath-rpa did not install; the fix agent would author XAML without its authoring rules."
+            exit 1
+          fi
+          echo "RPA skill at $SKILL_DIR"
+
+      - name: Claude fix attempt
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            BRANCH: ${{ steps.issue.outputs.branch }}
+            ANALYSIS: job-failure-analysis.md (the body of triage issue #${{ inputs.issue }})
+
+            An Orchestrator job failure has already been investigated and the diagnosis
+            filed as issue #${{ inputs.issue }}. Its "Proposed fix" section names the
+            root cause and the change. Apply that fix.
+
+            This is a UiPath Studio REFramework project (Portable target, VB
+            expressions, XAML workflows). Load the uipath-rpa skill before editing any
+            .xaml, and read CLAUDE.md first.
+
+            1. Read the analysis, then read the file its "Proposed fix" section names
+               before touching anything.
+            2. The report may say the deployed package version differs from this
+               checkout. If so, the code you are editing is not what produced the
+               failure — fix the defect as it exists here, and say in your summary that
+               the fix cannot be confirmed against the failing run.
+            3. Apply the smallest change that resolves the named root cause. Do not
+               reformat, do not tidy neighbouring activities, do not rename variables
+               the fix does not require. If the real fix is larger than the report
+               suggests, make the surgical part and describe the rest in your summary
+               rather than expanding the diff.
+            4. Hold the project conventions:
+               - guard every JObject dereference —
+                 `If(obj("k") IsNot Nothing, obj("k").ToString, "(default)")`
+               - all HTTP goes through Framework/HttpGet.xaml or HttpPost.xaml, never
+                 a raw HttpClient dropped into a Process step
+               - Main.xaml and Framework/GetTransactionData.xaml are do-not-modify
+               - keep the queue contract, the BR-05 posting order and the existing
+                 exception codes intact
+               - settings belong in Data/Config.xlsx or an Orchestrator asset, not
+                 hardcoded in a workflow
+               - comments only where the code genuinely needs the context
+            5. Validate before committing: run
+               `uip rpa get-errors --file-path "<file>" --project-dir "."` on every
+               .xaml you touched, then `uip rpa build "."` once. Do not commit a
+               workflow that fails validation — fix it, or stop and explain why you
+               cannot.
+            6. `uip rpa build` consumes the tracked entry-points.json as a packaging
+               artifact and leaves it deleted. Run `git checkout -- entry-points.json`
+               after the build and never commit its deletion.
+            7. Commit to the current branch with a `fix:` subject under 72 characters.
+               Stage only the source files you changed — never job-failure-analysis.md,
+               which is scratch input. Do not amend or push; the workflow pushes.
+            8. You cannot edit anything under .github/workflows/ — the token has no
+               `workflow` scope and the push would be rejected.
+            9. Finish with a short summary: what you changed, and what validation said.
+
+            If the diagnosis does not hold up once you read the code, do not invent a
+            different fix — say so and leave the code alone. An honest "no fix applied"
+            is a useful result; a plausible wrong patch to an automation that posts
+            benefits elections is not.
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Skill,Read,Edit,Write,Glob,Grep,Bash"
+
+      # The agent is told not to stage it, but a stray `git add -A` would sweep it in
+      # and the diff check below would then mistake it for a real fix.
+      - name: Drop the scratch analysis
+        run: |
+          set -euo pipefail
+          git rm --cached --quiet job-failure-analysis.md 2>/dev/null || true
+          rm -f job-failure-analysis.md
+          if ! git diff --quiet HEAD -- job-failure-analysis.md 2>/dev/null; then
+            git commit -q -m "chore: drop scratch analysis" -- job-failure-analysis.md || true
+          fi
+
+      # No diff means no PR. The issue stays open and gets a comment saying why, which
+      # is more useful than an empty pull request.
+      - name: Open a PR, or report back on the issue
+        run: |
+          set -euo pipefail
+          BRANCH="${{ steps.issue.outputs.branch }}"
+          SHORT="${{ steps.issue.outputs.short }}"
+
+          if git diff --quiet main..HEAD; then
+            echo "::warning::The agent committed no source change; leaving issue #$ISSUE open."
+            gh issue comment "$ISSUE" --repo "$GH_REPO" --body \
+              "The apply-fix workflow ran ([run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})) but produced no source change, so no PR was opened. Either the diagnosis did not hold up against the code, or validation blocked the edit — the run log has the agent's reasoning. This issue stays open."
+            exit 0
+          fi
+
+          git push --set-upstream origin "$BRANCH"
+
+          # Scoped to this branch — an unscoped --grep would title the PR with some
+          # unrelated `fix:` commit from main's history.
+          SUBJECT=$(git log --pretty=%s -1 --grep '^fix:' main..HEAD || true)
+          SUBJECT="${SUBJECT#fix: }"
+
+          {
+            printf '> [!NOTE]\n> Fix applied by an agent from the diagnosis in #%s. It is validated, not verified — re-run the transaction before merging.\n\n' "$ISSUE"
+            printf 'Fixes #%s\n' "$ISSUE"
+          } > "$RUNNER_TEMP/pr-body.md"
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "fix(job $SHORT): ${SUBJECT:-remediate failure}" \
+            --body-file "$RUNNER_TEMP/pr-body.md"
