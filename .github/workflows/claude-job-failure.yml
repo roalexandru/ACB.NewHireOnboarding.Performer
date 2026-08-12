@@ -20,7 +20,7 @@ on:
       folder_path:
         description: Orchestrator folder the job ran in
         required: true
-        default: DevCon26
+        default: CodingAgentsDemos
         type: string
       apply_fix:
         description: Attempt a source fix and open a PR
@@ -32,7 +32,7 @@ on:
   # its own payload with no custom headers. Something in between has to translate,
   # e.g. the dispatch-error-agent in the uipath-support-agent solution:
   #   gh api repos/{owner}/{repo}/dispatches -f event_type=job-failure \
-  #     -F 'client_payload[job_key]=<guid>' -F 'client_payload[folder_path]=DevCon26'
+  #     -F 'client_payload[job_key]=<guid>' -F 'client_payload[folder_path]=CodingAgentsDemos'
   # The caller needs its own GitHub credential (PAT or App installation token) only
   # because it runs outside Actions, where GITHUB_TOKEN does not exist —
   # repository_dispatch is itself one of the two events a GITHUB_TOKEN may raise.
@@ -93,7 +93,7 @@ jobs:
             schedule)            JOB_KEY=""; FOLDER=""; APPLY="" ;;
             *)                   JOB_KEY="$WD_JOB_KEY"; FOLDER="$WD_FOLDER"; APPLY="$WD_APPLY_FIX" ;;
           esac
-          FOLDER="${FOLDER:-DevCon26}"
+          FOLDER="${FOLDER:-CodingAgentsDemos}"
           [ "$APPLY" = "false" ] && APPLY=false || APPLY=true
 
           {

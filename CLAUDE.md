@@ -215,8 +215,8 @@ uip rpa pack "." "../nupkg"
 uip or packages upload "../nupkg/ACB.NewHireOnboarding.Performer.<version>.nupkg"
 uip or processes update-version <process-key> --package-version "<version>"
 
-# Start a job in DevCon26
-uip or jobs start --folder-path "DevCon26" <process-key>
+# Start a job in CodingAgentsDemos
+uip or jobs start --folder-path "CodingAgentsDemos" <process-key>
 ```
 
 `get-errors` is the single source of truth for "did my edit break the workflow" — always run it
