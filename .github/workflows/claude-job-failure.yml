@@ -55,6 +55,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
   id-token: write
   actions: read
 
@@ -71,8 +72,10 @@ jobs:
     env:
       UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
       UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
-      # Needed by the poll path to tell an already-filed failure from a new one.
+      # Gives the poll path an origin remote for its branch dedupe check.
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -145,11 +148,17 @@ jobs:
               || echo '{"Data":[]}' > "$RUNNER_TEMP/$1.json"
           }
 
+          # Every issue and PR this workflow opens carries the short job key in its
+          # title, so searching those is what tells us a job was already handled.
           # Explicit ifs, not `[ ... ] && return 1` -- a trailing false test would make
           # the function return non-zero and silently mean the opposite.
           untriaged() {
-            local short="${1%%-*}"
-            if [ -f "Documentation/incidents/job-$short.md" ]; then return 1; fi
+            local short="${1%%-*}" n
+            n=$(gh issue list --repo "$GH_REPO" --state all --search "$short in:title" --limit 1 --json number --jq 'length' 2>/dev/null || echo 0)
+            if [ "${n:-0}" != "0" ]; then return 1; fi
+            n=$(gh pr list --repo "$GH_REPO" --state all --search "$short in:title" --limit 1 --json number --jq 'length' 2>/dev/null || echo 0)
+            if [ "${n:-0}" != "0" ]; then return 1; fi
+            # Search indexing lags; a freshly pushed branch is the immediate signal.
             if git ls-remote --exit-code --heads origin "fix/job-$short-*" >/dev/null 2>&1; then return 1; fi
             return 0
           }
@@ -445,8 +454,11 @@ jobs:
           path: .local/investigations
           if-no-files-found: ignore
 
-  fix-and-pr:
-    name: Attempt fix and open PR
+  # A diagnosis is not a code change. Only a verdict that actually produces a diff
+  # earns a PR; everything else is an issue, so nothing lands in the repo that a
+  # reviewer cannot act on by merging.
+  remediate:
+    name: Apply fix or file issue
     needs: [resolve, investigate]
     if: needs.resolve.outputs.apply_fix == 'true'
     runs-on: ubuntu-latest
@@ -454,64 +466,89 @@ jobs:
     env:
       UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
       UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
-      # A PR opened with the default token does start Claude PR Review, but the run
-      # parks in "approval required" until someone with write access releases it.
-      # PR_AUTHOR_PAT is optional and buys away only that click.
       GH_TOKEN: ${{ secrets.PR_AUTHOR_PAT || github.token }}
+      GH_REPO: ${{ github.repository }}
       VERDICT: ${{ needs.investigate.outputs.verdict }}
+      SHORT: ${{ needs.resolve.outputs.short_key }}
+      JOB_KEY: ${{ needs.resolve.outputs.job_key }}
       # Run number keeps a re-triage of the same job from colliding with the branch
-      # and PR the previous run already pushed.
+      # the previous run already pushed.
       BRANCH: fix/job-${{ needs.resolve.outputs.short_key }}-${{ github.run_number }}
-      REPORT: Documentation/incidents/job-${{ needs.resolve.outputs.short_key }}.md
     steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
       - name: Download analysis
         uses: actions/download-artifact@v4
         with:
           name: job-failure-analysis
           path: ${{ runner.temp }}/triage
 
-      # Committed before the agent runs so the branch always carries the diagnosis,
-      # even when the verdict is NO_SOURCE_FIX and there is nothing to fix.
-      - name: Commit the report
+      # Every title carries the short job key — that is what the poller's dedupe
+      # searches for, so an already-triaged job is never picked up twice.
+      - name: File an issue
+        if: needs.investigate.outputs.verdict != 'SOURCE_FIX'
+        run: |
+          set -euo pipefail
+          case "$VERDICT" in
+            NO_SOURCE_FIX)
+              TITLE="job $SHORT: configuration fix required"
+              NOTE=$'> [!IMPORTANT]\n> Root cause is configuration or tenant state, not code. Nothing to merge — see "Proposed fix" for the command or portal path to run.' ;;
+            *)
+              TITLE="job $SHORT: root cause unconfirmed"
+              NOTE=$'> [!WARNING]\n> The evidence did not single out one root cause. See "Open questions" for what would settle it.' ;;
+          esac
+          {
+            printf '%s\n\n' "$NOTE"
+            printf 'Orchestrator job `%s`.\n\n' "$JOB_KEY"
+            cat "$RUNNER_TEMP/triage/job-failure-analysis.md"
+          } > "$RUNNER_TEMP/issue.md"
+          gh issue create --repo "$GH_REPO" --title "$TITLE" --body-file "$RUNNER_TEMP/issue.md"
+
+      - name: Checkout main
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create branch
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          mkdir -p Documentation/incidents
-          cp "$RUNNER_TEMP/triage/job-failure-analysis.md" "$REPORT"
-          git add "$REPORT"
-          git commit -m "docs: job ${{ needs.resolve.outputs.short_key }} failure analysis"
 
       - name: Set up .NET 8
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
       - name: Install UiPath CLI
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
         run: |
           npm install -g @uipath/cli
           uip --version
 
       - name: UiPath Cloud login
-        if: env.UIPATH_CLIENT_ID != ''
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX' && env.UIPATH_CLIENT_ID != ''
         run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
 
       - name: Install Claude Code
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
         run: |
           npm install -g @anthropic-ai/claude-code
           claude --version
 
       - name: Install UiPath skills for Claude
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
         run: |
+          set -euo pipefail
           uip skills install --agent claude
-          ls -1 ~/.claude/skills 2>/dev/null || echo "no skills directory"
+          find ~/.claude -type d -name uipath-rpa 2>/dev/null | head -1
+
+      - name: Stage the analysis for the agent
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
+        run: cp "$RUNNER_TEMP/triage/job-failure-analysis.md" ./job-failure-analysis.md
 
       - name: Claude fix attempt
         if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
@@ -522,9 +559,9 @@ jobs:
           prompt: |
             REPO: ${{ github.repository }}
             BRANCH: ${{ env.BRANCH }}
-            ANALYSIS: ${{ env.REPORT }}
+            ANALYSIS: job-failure-analysis.md
 
-            A faulted Orchestrator job has already been investigated. The report at
+            An Orchestrator job failure has already been investigated. The report at
             ANALYSIS names the root cause and the fix. Apply that fix.
 
             This is a UiPath Studio REFramework project (Portable target, VB
@@ -557,8 +594,9 @@ jobs:
                artifact and leaves it deleted. Run `git checkout -- entry-points.json`
                after the build and never commit its deletion.
             6. Commit to the current branch with a `fix:` subject under 72 characters.
-               Stage only the files you changed. Do not amend or push — the workflow
-               pushes. Leave ${{ env.REPORT }} exactly as it is.
+               Stage only the source files you changed — never job-failure-analysis.md,
+               which is scratch input and must not reach the commit. Do not amend or
+               push; the workflow pushes.
             7. You cannot edit anything under .github/workflows/ — the token has no
                `workflow` scope and the push would be rejected.
             8. Finish with a short summary: what you changed, and what validation said.
@@ -569,36 +607,52 @@ jobs:
             --max-turns 60
             --allowedTools "Skill,Read,Edit,Write,Glob,Grep,Bash"
 
-      - name: Push branch
-        run: git push --set-upstream origin "$BRANCH"
-
-      - name: Open PR
+      # The agent is asked not to stage it, but a stray `git add -A` would sweep it in
+      # and the diff check below would then mistake it for a real fix.
+      - name: Drop the scratch analysis
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
         run: |
           set -euo pipefail
-          case "$VERDICT" in
-            SOURCE_FIX)
-              if git diff --quiet main..HEAD -- ':!Documentation/incidents'; then
-                TITLE="docs: job ${{ needs.resolve.outputs.short_key }} failure analysis (fix not applied)"
-                NOTE=$'> [!WARNING]\n> The investigation proposed a source fix but the agent did not commit one. Review the analysis and apply it by hand.'
-              else
-                # Scoped to this branch — an unscoped --grep would happily title the
-                # PR with some unrelated `fix:` commit from main's history.
-                TITLE=$(git log --pretty=%s -1 --grep '^fix:' main..HEAD || true)
-                TITLE="${TITLE:-fix: job ${{ needs.resolve.outputs.short_key }} failure}"
-                NOTE=$'> [!NOTE]\n> Fix applied by an agent from the analysis below. It is validated, not verified — re-run the transaction before merging.'
-              fi ;;
-            NO_SOURCE_FIX)
-              TITLE="docs: job ${{ needs.resolve.outputs.short_key }} failure analysis (config fix)"
-              NOTE=$'> [!IMPORTANT]\n> Root cause is configuration or tenant state, not code. No source change was made — see "Proposed fix" for the command or portal path to run.' ;;
-            *)
-              TITLE="docs: job ${{ needs.resolve.outputs.short_key }} failure analysis (unconfirmed)"
-              NOTE=$'> [!WARNING]\n> The evidence did not single out one root cause. See "Open questions" for what would settle it.' ;;
-          esac
+          git rm --cached --quiet job-failure-analysis.md 2>/dev/null || true
+          rm -f job-failure-analysis.md
+          if ! git diff --quiet HEAD -- job-failure-analysis.md 2>/dev/null; then
+            git commit -q -m "chore: drop scratch analysis" -- job-failure-analysis.md || true
+          fi
 
-          { printf '%s\n\n' "$NOTE"; cat "$REPORT"; } > "$RUNNER_TEMP/pr-body.md"
+      # A PR is only worth opening if the agent actually produced a diff. If it did
+      # not, the finding still needs a home, so it becomes an issue like any other
+      # non-code verdict rather than an empty PR.
+      - name: Open a PR, or fall back to an issue
+        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
+        run: |
+          set -euo pipefail
+          if git diff --quiet main..HEAD; then
+            echo "::warning::The agent committed no source change; filing an issue instead of an empty PR."
+            {
+              printf '> [!WARNING]\n> The investigation proposed a source fix, but the agent did not produce one. Apply it by hand.\n\n'
+              printf 'Orchestrator job `%s`.\n\n' "$JOB_KEY"
+              cat "$RUNNER_TEMP/triage/job-failure-analysis.md"
+            } > "$RUNNER_TEMP/issue.md"
+            gh issue create --repo "$GH_REPO" \
+              --title "job $SHORT: proposed fix was not applied" \
+              --body-file "$RUNNER_TEMP/issue.md"
+            exit 0
+          fi
+
+          git push --set-upstream origin "$BRANCH"
+
+          # Scoped to this branch — an unscoped --grep would happily title the PR with
+          # some unrelated `fix:` commit from main's history.
+          SUBJECT=$(git log --pretty=%s -1 --grep '^fix:' main..HEAD || true)
+          SUBJECT="${SUBJECT#fix: }"
+          {
+            printf '> [!NOTE]\n> Fix applied by an agent from the analysis below. It is validated, not verified — re-run the transaction before merging.\n\n'
+            printf 'Fixes Orchestrator job `%s`.\n\n' "$JOB_KEY"
+            cat "$RUNNER_TEMP/triage/job-failure-analysis.md"
+          } > "$RUNNER_TEMP/pr-body.md"
 
           gh pr create \
             --base main \
             --head "$BRANCH" \
-            --title "$TITLE" \
+            --title "fix(job $SHORT): ${SUBJECT:-remediate failure}" \
             --body-file "$RUNNER_TEMP/pr-body.md"
