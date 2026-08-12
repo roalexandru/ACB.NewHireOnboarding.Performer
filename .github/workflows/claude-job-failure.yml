@@ -39,10 +39,12 @@ on:
   repository_dispatch:
     types: [job-failure]
 
-  # Poll path. Needs no Orchestrator-side wiring at all: it asks Orchestrator for
-  # faulted jobs and triages the oldest one it has not already filed.
-  schedule:
-    - cron: '*/30 * * * *'
+  # Poll path — DISABLED for now. Needs no Orchestrator-side wiring at all: it asks
+  # Orchestrator for failed jobs and triages the oldest one it has not already filed.
+  # Re-enable by uncommenting the two lines below; nothing else depends on this being
+  # off, and the poll logic itself is unchanged.
+  # schedule:
+  #   - cron: '*/30 * * * *'
 
 # Scheduled runs all share one slot so a poll cannot pick up a job the previous poll
 # is still triaging — its dedupe branch does not exist yet at that point.
