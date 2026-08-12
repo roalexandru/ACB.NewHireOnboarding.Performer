@@ -1,14 +1,17 @@
 name: Claude Job Failure Triage
 
-# Investigates a faulted Orchestrator job with the `uipath-troubleshoot` skill, then
-# attempts the source fix and opens a PR carrying the diagnosis.
+# Investigates a failed Orchestrator job with the `uipath-troubleshoot` skill and
+# files an issue with the diagnosis. It never touches source — remediation lives in
+# claude-apply-fix.yml, dispatched against the issue this workflow opens.
 #
-# Diagnosis and remediation are two separate agent runs on purpose. The troubleshoot
-# skill never edits source artifacts itself — applying a fix is behind an interactive
-# approval gate that does not exist on a runner, and its documented behaviour when
-# that gate is unavailable is "present the fix as text and stop". So job 2 is a fresh
-# agent that checks main out again and treats the report as its spec; nothing the
-# investigator touched on disk can leak into the PR.
+# The split is not just tidiness. The troubleshoot skill refuses to edit source
+# artifacts itself (applying a fix sits behind an interactive approval gate that does
+# not exist on a runner), and separating the two means a fix can be retried, or run
+# against an issue filed days ago, without paying for an 80-turn re-investigation.
+#
+# Every verdict files an issue, including CODE_FIX. The issue tracks the failure; a
+# PR is only ever one proposed remedy, and closing it unmerged must not erase the
+# record that the job failed.
 
 on:
   workflow_dispatch:
@@ -22,11 +25,6 @@ on:
         required: true
         default: CodingAgentsDemos
         type: string
-      apply_fix:
-        description: Attempt a source fix and open a PR
-        required: false
-        default: true
-        type: boolean
   # Push path. Orchestrator cannot POST here itself — /dispatches needs an
   # Authorization header and this exact body shape, and an Orchestrator webhook sends
   # its own payload with no custom headers. Something in between has to translate,
@@ -67,7 +65,6 @@ jobs:
       found: ${{ steps.select.outputs.found }}
       job_key: ${{ steps.select.outputs.job_key }}
       folder_path: ${{ steps.args.outputs.folder_path }}
-      apply_fix: ${{ steps.args.outputs.apply_fix }}
       short_key: ${{ steps.select.outputs.short_key }}
     env:
       UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
@@ -87,24 +84,20 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           WD_JOB_KEY: ${{ inputs.job_key }}
           WD_FOLDER: ${{ inputs.folder_path }}
-          WD_APPLY_FIX: ${{ inputs.apply_fix }}
           RD_JOB_KEY: ${{ github.event.client_payload.job_key }}
           RD_FOLDER: ${{ github.event.client_payload.folder_path }}
-          RD_APPLY_FIX: ${{ github.event.client_payload.apply_fix }}
         run: |
           set -euo pipefail
           case "$EVENT_NAME" in
-            repository_dispatch) JOB_KEY="$RD_JOB_KEY"; FOLDER="$RD_FOLDER"; APPLY="$RD_APPLY_FIX" ;;
-            schedule)            JOB_KEY=""; FOLDER=""; APPLY="" ;;
-            *)                   JOB_KEY="$WD_JOB_KEY"; FOLDER="$WD_FOLDER"; APPLY="$WD_APPLY_FIX" ;;
+            repository_dispatch) JOB_KEY="$RD_JOB_KEY"; FOLDER="$RD_FOLDER" ;;
+            schedule)            JOB_KEY=""; FOLDER="" ;;
+            *)                   JOB_KEY="$WD_JOB_KEY"; FOLDER="$WD_FOLDER" ;;
           esac
           FOLDER="${FOLDER:-CodingAgentsDemos}"
-          [ "$APPLY" = "false" ] && APPLY=false || APPLY=true
 
           {
             echo "job_key=$JOB_KEY"
             echo "folder_path=$FOLDER"
-            echo "apply_fix=$APPLY"
           } >> "$GITHUB_OUTPUT"
 
       - name: Install UiPath CLI
@@ -402,19 +395,26 @@ jobs:
                Anything you could not settle headlessly, and what evidence would settle
                it. Write "None." if there are none.
 
-            5. Then write exactly one word to triage-verdict.txt in the repo root:
-               SOURCE_FIX   - a specific .xaml change under Process/, Rules/ or
-                              Framework/ would prevent this failure
-               NO_SOURCE_FIX - real root cause, but the fix is config/data/tenant state
-               UNCONFIRMED  - the evidence does not support a single root cause
+            5. Then write exactly one word to triage-verdict.txt in the repo root.
+               This word decides who acts next, so choose it on where the fix lives,
+               not on how confident you feel:
+               CODE_FIX    - a specific .xaml change under Process/, Rules/ or
+                             Framework/ would prevent this failure
+               CONFIG_FIX  - our own configuration or tenant state: an asset value, a
+                             queue, a permission, Data/Config.xlsx, a job input
+               EXTERNAL    - something outside this automation failed: the partner API,
+                             the network, Orchestrator itself. Often transient
+               UNCONFIRMED - the evidence does not support a single root cause
+
+               Only CODE_FIX will ever put an agent near the source. If a code change
+               is arguable but not clearly warranted, do not pick CODE_FIX.
 
             Report only what the evidence supports. If a command returns nothing, that
             is a finding — write it down rather than filling the gap with a plausible
             story.
           # Bash is broad because the skill drives the whole uip surface and captures
           # every response through tee/redirect; a narrow allowlist blocks it mid-run.
-          # Edit is withheld instead, and job 2 checks main out fresh, so nothing this
-          # agent writes can reach the PR.
+          # Edit is withheld: this workflow only ever diagnoses.
           claude_args: |
             --max-turns 80
             --allowedTools "Skill,Read,Glob,Grep,Write,Bash"
@@ -429,13 +429,68 @@ jobs:
           fi
           VERDICT=$(tr -d '[:space:]' < triage-verdict.txt 2>/dev/null || true)
           case "$VERDICT" in
-            SOURCE_FIX|NO_SOURCE_FIX|UNCONFIRMED) ;;
+            CODE_FIX|CONFIG_FIX|EXTERNAL|UNCONFIRMED) ;;
+            # An unreadable verdict must never be the one that dispatches an agent at
+            # the source, so it degrades to the inert one.
             *) echo "::warning::Unrecognized verdict '$VERDICT'; treating as UNCONFIRMED."
                VERDICT=UNCONFIRMED ;;
           esac
           echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
           echo "::notice::Triage verdict: $VERDICT"
           cat job-failure-analysis.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Every failure gets an issue, including CODE_FIX. The issue tracks the failure;
+      # a PR is only ever one proposed remedy for it, and closing that PR unmerged must
+      # not erase the record that the job failed.
+      - name: File the issue
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERDICT: ${{ steps.verdict.outputs.verdict }}
+          SHORT: ${{ needs.resolve.outputs.short_key }}
+          JOB_KEY: ${{ needs.resolve.outputs.job_key }}
+        run: |
+          set -euo pipefail
+          case "$VERDICT" in
+            CODE_FIX)
+              SUMMARY="code fix required"
+              LABEL="triage:code-fix"; COLOR="d73a4a"
+              NOTE=$'> [!NOTE]\n> A source change is proposed below. Dispatch the apply-fix workflow against this issue to have it attempted, or apply it by hand.' ;;
+            CONFIG_FIX)
+              SUMMARY="configuration fix required"
+              LABEL="triage:config-fix"; COLOR="fbca04"
+              NOTE=$'> [!IMPORTANT]\n> Root cause is our configuration or tenant state, not code. See "Proposed fix" for the command or portal path to run.' ;;
+            EXTERNAL)
+              SUMMARY="external system failure"
+              LABEL="triage:external"; COLOR="0e8a16"
+              NOTE=$'> [!NOTE]\n> Root cause is outside this automation. Often transient — check the upstream system, then retry the queue item. No change to this repo applies.' ;;
+            *)
+              SUMMARY="root cause unconfirmed"
+              LABEL="triage:unconfirmed"; COLOR="cfd3d7"
+              NOTE=$'> [!WARNING]\n> The evidence did not single out one root cause. See "Open questions" for what would settle it.' ;;
+          esac
+
+          # --force makes this idempotent; a labelling failure must not lose the report.
+          gh label create "$LABEL" --repo "$GH_REPO" --color "$COLOR" --description "Job triage: $SUMMARY" --force >/dev/null 2>&1 || true
+
+          {
+            printf '%s\n\n' "$NOTE"
+            printf 'Orchestrator job `%s` in folder `%s`.\n\n' "$JOB_KEY" "${{ needs.resolve.outputs.folder_path }}"
+            cat job-failure-analysis.md
+          } > "$RUNNER_TEMP/issue.md"
+
+          # The short key in the title is what the poller's dedupe searches for.
+          TITLE="job $SHORT: $SUMMARY"
+          URL=$(gh issue create --repo "$GH_REPO" --title "$TITLE" --body-file "$RUNNER_TEMP/issue.md" --label "$LABEL" 2>/dev/null \
+                || gh issue create --repo "$GH_REPO" --title "$TITLE" --body-file "$RUNNER_TEMP/issue.md")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "number=${URL##*/}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Filed $URL"
+
+          if [ "$VERDICT" = "CODE_FIX" ]; then
+            echo "::notice::To attempt the fix: gh workflow run claude-apply-fix.yml -f issue=${URL##*/}"
+          fi
 
       - name: Upload analysis
         uses: actions/upload-artifact@v4
@@ -453,206 +508,3 @@ jobs:
           name: job-failure-evidence
           path: .local/investigations
           if-no-files-found: ignore
-
-  # A diagnosis is not a code change. Only a verdict that actually produces a diff
-  # earns a PR; everything else is an issue, so nothing lands in the repo that a
-  # reviewer cannot act on by merging.
-  remediate:
-    name: Apply fix or file issue
-    needs: [resolve, investigate]
-    if: needs.resolve.outputs.apply_fix == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
-      UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
-      GH_TOKEN: ${{ secrets.PR_AUTHOR_PAT || github.token }}
-      GH_REPO: ${{ github.repository }}
-      VERDICT: ${{ needs.investigate.outputs.verdict }}
-      SHORT: ${{ needs.resolve.outputs.short_key }}
-      JOB_KEY: ${{ needs.resolve.outputs.job_key }}
-      # Run number keeps a re-triage of the same job from colliding with the branch
-      # the previous run already pushed.
-      BRANCH: fix/job-${{ needs.resolve.outputs.short_key }}-${{ github.run_number }}
-    steps:
-      - name: Download analysis
-        uses: actions/download-artifact@v4
-        with:
-          name: job-failure-analysis
-          path: ${{ runner.temp }}/triage
-
-      # Every title carries the short job key — that is what the poller's dedupe
-      # searches for, so an already-triaged job is never picked up twice.
-      - name: File an issue
-        if: needs.investigate.outputs.verdict != 'SOURCE_FIX'
-        run: |
-          set -euo pipefail
-          case "$VERDICT" in
-            NO_SOURCE_FIX)
-              TITLE="job $SHORT: configuration fix required"
-              NOTE=$'> [!IMPORTANT]\n> Root cause is configuration or tenant state, not code. Nothing to merge — see "Proposed fix" for the command or portal path to run.' ;;
-            *)
-              TITLE="job $SHORT: root cause unconfirmed"
-              NOTE=$'> [!WARNING]\n> The evidence did not single out one root cause. See "Open questions" for what would settle it.' ;;
-          esac
-          {
-            printf '%s\n\n' "$NOTE"
-            printf 'Orchestrator job `%s`.\n\n' "$JOB_KEY"
-            cat "$RUNNER_TEMP/triage/job-failure-analysis.md"
-          } > "$RUNNER_TEMP/issue.md"
-          gh issue create --repo "$GH_REPO" --title "$TITLE" --body-file "$RUNNER_TEMP/issue.md"
-
-      - name: Checkout main
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Create branch
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-
-      - name: Set up .NET 8
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-
-      - name: Install UiPath CLI
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
-        run: |
-          npm install -g @uipath/cli
-          uip --version
-
-      - name: UiPath Cloud login
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX' && env.UIPATH_CLIENT_ID != ''
-        run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
-
-      - name: Install Claude Code
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
-        run: |
-          npm install -g @anthropic-ai/claude-code
-          claude --version
-
-      - name: Install UiPath skills for Claude
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
-        run: |
-          set -euo pipefail
-          uip skills install --agent claude
-          find ~/.claude -type d -name uipath-rpa 2>/dev/null | head -1
-
-      - name: Stage the analysis for the agent
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
-        run: cp "$RUNNER_TEMP/triage/job-failure-analysis.md" ./job-failure-analysis.md
-
-      - name: Claude fix attempt
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ github.token }}
-          prompt: |
-            REPO: ${{ github.repository }}
-            BRANCH: ${{ env.BRANCH }}
-            ANALYSIS: job-failure-analysis.md
-
-            An Orchestrator job failure has already been investigated. The report at
-            ANALYSIS names the root cause and the fix. Apply that fix.
-
-            This is a UiPath Studio REFramework project (Portable target, VB
-            expressions, XAML workflows). Read CLAUDE.md first and hold yourself to it.
-
-            1. Read the analysis, then read the file its "Proposed fix" section names
-               before touching anything.
-            2. Apply the smallest change that resolves the named root cause. Do not
-               reformat, do not tidy neighbouring activities, do not rename variables
-               the fix does not require. If the real fix turns out to be larger than
-               the report suggests, make the surgical part and describe the rest in
-               your summary rather than expanding the diff.
-            3. Hold the project conventions:
-               - guard every JObject dereference —
-                 `If(obj("k") IsNot Nothing, obj("k").ToString, "(default)")`
-               - all HTTP goes through Framework/HttpGet.xaml or HttpPost.xaml, never
-                 a raw HttpClient dropped into a Process step
-               - Main.xaml and Framework/GetTransactionData.xaml are do-not-modify
-               - keep the queue contract, the BR-05 posting order and the existing
-                 exception codes intact
-               - settings belong in Data/Config.xlsx or an Orchestrator asset, not
-                 hardcoded in a workflow
-               - comments only where the code genuinely needs the context
-            4. Validate before committing: run
-               `uip rpa get-errors --file-path "<file>" --project-dir "."` on every
-               .xaml you touched, then `uip rpa build "."` once. Do not commit a
-               workflow that fails validation — fix it, or stop and explain why you
-               cannot.
-            5. `uip rpa build` consumes the tracked entry-points.json as a packaging
-               artifact and leaves it deleted. Run `git checkout -- entry-points.json`
-               after the build and never commit its deletion.
-            6. Commit to the current branch with a `fix:` subject under 72 characters.
-               Stage only the source files you changed — never job-failure-analysis.md,
-               which is scratch input and must not reach the commit. Do not amend or
-               push; the workflow pushes.
-            7. You cannot edit anything under .github/workflows/ — the token has no
-               `workflow` scope and the push would be rejected.
-            8. Finish with a short summary: what you changed, and what validation said.
-
-            If the report's verdict does not actually hold up once you read the code,
-            do not invent a different fix — say so and leave the code alone.
-          claude_args: |
-            --max-turns 60
-            --allowedTools "Skill,Read,Edit,Write,Glob,Grep,Bash"
-
-      # The agent is asked not to stage it, but a stray `git add -A` would sweep it in
-      # and the diff check below would then mistake it for a real fix.
-      - name: Drop the scratch analysis
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
-        run: |
-          set -euo pipefail
-          git rm --cached --quiet job-failure-analysis.md 2>/dev/null || true
-          rm -f job-failure-analysis.md
-          if ! git diff --quiet HEAD -- job-failure-analysis.md 2>/dev/null; then
-            git commit -q -m "chore: drop scratch analysis" -- job-failure-analysis.md || true
-          fi
-
-      # A PR is only worth opening if the agent actually produced a diff. If it did
-      # not, the finding still needs a home, so it becomes an issue like any other
-      # non-code verdict rather than an empty PR.
-      - name: Open a PR, or fall back to an issue
-        if: needs.investigate.outputs.verdict == 'SOURCE_FIX'
-        run: |
-          set -euo pipefail
-          if git diff --quiet main..HEAD; then
-            echo "::warning::The agent committed no source change; filing an issue instead of an empty PR."
-            {
-              printf '> [!WARNING]\n> The investigation proposed a source fix, but the agent did not produce one. Apply it by hand.\n\n'
-              printf 'Orchestrator job `%s`.\n\n' "$JOB_KEY"
-              cat "$RUNNER_TEMP/triage/job-failure-analysis.md"
-            } > "$RUNNER_TEMP/issue.md"
-            gh issue create --repo "$GH_REPO" \
-              --title "job $SHORT: proposed fix was not applied" \
-              --body-file "$RUNNER_TEMP/issue.md"
-            exit 0
-          fi
-
-          git push --set-upstream origin "$BRANCH"
-
-          # Scoped to this branch — an unscoped --grep would happily title the PR with
-          # some unrelated `fix:` commit from main's history.
-          SUBJECT=$(git log --pretty=%s -1 --grep '^fix:' main..HEAD || true)
-          SUBJECT="${SUBJECT#fix: }"
-          {
-            printf '> [!NOTE]\n> Fix applied by an agent from the analysis below. It is validated, not verified — re-run the transaction before merging.\n\n'
-            printf 'Fixes Orchestrator job `%s`.\n\n' "$JOB_KEY"
-            cat "$RUNNER_TEMP/triage/job-failure-analysis.md"
-          } > "$RUNNER_TEMP/pr-body.md"
-
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "fix(job $SHORT): ${SUBJECT:-remediate failure}" \
-            --body-file "$RUNNER_TEMP/pr-body.md"
