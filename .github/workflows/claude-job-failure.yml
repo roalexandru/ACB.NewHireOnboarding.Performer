@@ -16,9 +16,14 @@ name: Claude Job Failure Triage
 on:
   workflow_dispatch:
     inputs:
+      poll:
+        description: Ignore job_key and pick up the oldest untriaged failure instead
+        required: false
+        default: false
+        type: boolean
       job_key:
-        description: Orchestrator job key (GUID) of the faulted job
-        required: true
+        description: Orchestrator job key (GUID) — required unless poll is ticked
+        required: false
         type: string
       folder_path:
         description: Orchestrator folder the job ran in
@@ -37,12 +42,13 @@ on:
   repository_dispatch:
     types: [job-failure]
 
-  # Poll path — DISABLED for now. Needs no Orchestrator-side wiring at all: it asks
-  # Orchestrator for failed jobs and triages the oldest one it has not already filed.
-  # Re-enable by uncommenting the two lines below; nothing else depends on this being
-  # off, and the poll logic itself is unchanged.
-  # schedule:
-  #   - cron: '*/30 * * * *'
+  # Poll path. Needs no Orchestrator-side wiring at all: it asks Orchestrator for
+  # failed jobs and triages the oldest one it has not already filed. Claims one per
+  # run, so a backlog drains one tick at a time. `poll: true` above runs the same
+  # discovery on demand — which is also the only way to exercise this path without
+  # waiting for a tick.
+  schedule:
+    - cron: '*/30 * * * *'
 
 # Scheduled runs all share one slot so a poll cannot pick up a job the previous poll
 # is still triaging — its dedupe branch does not exist yet at that point.
@@ -86,32 +92,37 @@ jobs:
         id: args
         env:
           EVENT_NAME: ${{ github.event_name }}
+          WD_POLL: ${{ inputs.poll }}
           WD_JOB_KEY: ${{ inputs.job_key }}
           WD_FOLDER: ${{ inputs.folder_path }}
           RD_JOB_KEY: ${{ github.event.client_payload.job_key }}
           RD_FOLDER: ${{ github.event.client_payload.folder_path }}
         run: |
           set -euo pipefail
+          POLLING=false
           case "$EVENT_NAME" in
             repository_dispatch) JOB_KEY="$RD_JOB_KEY"; FOLDER="$RD_FOLDER" ;;
-            schedule)            JOB_KEY=""; FOLDER="" ;;
-            *)                   JOB_KEY="$WD_JOB_KEY"; FOLDER="$WD_FOLDER" ;;
+            schedule)            JOB_KEY=""; FOLDER=""; POLLING=true ;;
+            *)                   JOB_KEY="$WD_JOB_KEY"; FOLDER="$WD_FOLDER"
+                                 if [ "$WD_POLL" = "true" ]; then JOB_KEY=""; POLLING=true; fi ;;
           esac
           FOLDER="${FOLDER:-CodingAgentsDemos}"
 
           {
             echo "job_key=$JOB_KEY"
             echo "folder_path=$FOLDER"
+            echo "polling=$POLLING"
           } >> "$GITHUB_OUTPUT"
+          echo "Polling: $POLLING"
 
       - name: Install UiPath CLI
-        if: github.event_name == 'schedule'
+        if: steps.args.outputs.polling == 'true'
         run: |
           npm install -g @uipath/cli
           uip --version
 
       - name: UiPath Cloud login
-        if: github.event_name == 'schedule'
+        if: steps.args.outputs.polling == 'true'
         run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
 
       # A failure here wears one of three shapes, and no single query sees all three:
@@ -132,7 +143,7 @@ jobs:
       # only if those come up empty, because it costs one API call per job.
       - name: Find an untriaged failure
         id: poll
-        if: github.event_name == 'schedule'
+        if: steps.args.outputs.polling == 'true'
         env:
           FOLDER: ${{ steps.args.outputs.folder_path }}
         run: |
@@ -230,13 +241,14 @@ jobs:
           ITEM_REF: ${{ steps.poll.outputs.item_ref }}
           EXC_TYPE: ${{ steps.poll.outputs.exception_type }}
           EVENT_NAME: ${{ github.event_name }}
+          POLLING: ${{ steps.args.outputs.polling }}
           FOLDER: ${{ steps.args.outputs.folder_path }}
         run: |
           set -euo pipefail
           JOB_KEY="${ARG_JOB_KEY:-$POLL_JOB_KEY}"
 
           if [ -z "$JOB_KEY" ]; then
-            if [ "$EVENT_NAME" = "schedule" ]; then
+            if [ "$POLLING" = "true" ]; then
               echo "found=false" >> "$GITHUB_OUTPUT"
               echo "Nothing to triage."
               {
@@ -255,11 +267,16 @@ jobs:
             exit 1
           fi
 
-          case "$EVENT_NAME" in
-            schedule)            DETECTION="poll:${POLL_DETECTION:-unknown}" ;;
-            repository_dispatch) DETECTION="external-dispatch" ;;
-            *)                   DETECTION="manual-dispatch" ;;
-          esac
+          # Polling is checked first because a hand-run poll arrives as a
+          # workflow_dispatch and must still report how discovery found the job,
+          # not how the run was started.
+          if [ "$POLLING" = "true" ]; then
+            DETECTION="poll:${POLL_DETECTION:-unknown}"
+          elif [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            DETECTION="external-dispatch"
+          else
+            DETECTION="manual-dispatch"
+          fi
 
           # failed-transaction is the only path that knows a queue item, so the shape of
           # the failure is legible from the detection value alone.
