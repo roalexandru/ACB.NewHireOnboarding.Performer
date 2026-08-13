@@ -66,6 +66,10 @@ jobs:
       job_key: ${{ steps.select.outputs.job_key }}
       folder_path: ${{ steps.args.outputs.folder_path }}
       short_key: ${{ steps.select.outputs.short_key }}
+      detection: ${{ steps.select.outputs.detection }}
+      scope: ${{ steps.select.outputs.scope }}
+      item_ref: ${{ steps.select.outputs.item_ref }}
+      exception_type: ${{ steps.select.outputs.exception_type }}
     env:
       UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
       UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
@@ -110,13 +114,22 @@ jobs:
         if: github.event_name == 'schedule'
         run: uip login --client-id env.UIPATH_CLIENT_ID --client-secret env.UIPATH_CLIENT_SECRET --authority "https://staging.uipath.com" --tenant demo
 
-      # Oldest-first, so a backlog drains in the order it happened rather than the
-      # newest failure starving the ones behind it.
+      # A failure here wears one of three shapes, and no single query sees all three:
       #
-      # State=Faulted alone is not enough. Data/Config.xlsx sets
-      # ShouldMarkJobAsFaulted=False, so a run whose transaction blew up still reports
-      # Successful -- a Faulted-only filter finds nothing here, forever, while looking
-      # perfectly healthy. A Fatal log entry is the signal that actually fires.
+      #  faulted-job        State=Faulted. Honest, but Data/Config.xlsx sets
+      #                     ShouldMarkJobAsFaulted=False, so it effectively never fires.
+      #  failed-transaction A queue item failed. THE common case: a defect in a C-step
+      #                     blows up one transaction, REFramework catches it, marks the
+      #                     item Failed, logs at *Error*, and the job ends Successful.
+      #                     Measured: such a job carries 0 Fatal entries and 5 Error, so
+      #                     any log-level scan misses it outright.
+      #  job-fatal-log      Successful job carrying a Fatal entry. The job-level failure
+      #                     that never reaches a transaction -- e.g. the queue itself is
+      #                     missing, so no queue item exists to find.
+      #
+      # Candidates from the first two are merged and drained oldest-first, so a backlog
+      # clears in the order it happened rather than by category. The Fatal scan runs
+      # only if those come up empty, because it costs one API call per job.
       - name: Find an untriaged failure
         id: poll
         if: github.event_name == 'schedule'
@@ -125,21 +138,6 @@ jobs:
         run: |
           set -euo pipefail
           SINCE=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
-          # --output-filter may hand back the bare array or leave the response
-          # envelope on it, and `.Data` on an array is a jq error, not a null.
-          JQ='if type == "array" then . else (.Data // []) end | sort_by(.EndTime) | .[]?.Key // empty'
-
-          list_state() {
-            uip or jobs list \
-              --folder-path "$FOLDER" \
-              --state "$1" \
-              --ended-after "$SINCE" \
-              --limit 20 \
-              --output json \
-              --output-filter '[].{Key:Key,State:State,EndTime:EndTime}' \
-              > "$RUNNER_TEMP/$1.json" 2>/dev/null \
-              || echo '{"Data":[]}' > "$RUNNER_TEMP/$1.json"
-          }
 
           # Every issue and PR this workflow opens carries the short job key in its
           # title, so searching those is what tells us a job was already handled.
@@ -156,23 +154,58 @@ jobs:
             return 0
           }
 
-          list_state Faulted
-          list_state Successful
+          claim() {  # ts, key, detection, ref, exception_type
+            {
+              echo "job_key=$2"
+              echo "detection=$3"
+              echo "item_ref=$4"
+              echo "exception_type=$5"
+            } >> "$GITHUB_OUTPUT"
+            echo "::notice::Detected via $3 — job $2${4:+ (queue item $4${5:+, $5})}"
+          }
 
-          for KEY in $(jq -r "$JQ" "$RUNNER_TEMP/Faulted.json" 2>/dev/null); do
+          uip or jobs list --folder-path "$FOLDER" --state Faulted --ended-after "$SINCE" \
+            --limit 20 --output json --output-filter '[].{Key:Key,EndTime:EndTime}' \
+            > "$RUNNER_TEMP/faulted.json" 2>/dev/null || echo '{"Data":[]}' > "$RUNNER_TEMP/faulted.json"
+
+          # No --ended-after on queue-items, so the window is applied in jq. ISO-8601
+          # with a Z suffix compares correctly as a string.
+          uip or queue-items list --folder-path "$FOLDER" --status Failed \
+            --limit 50 --all-fields --output json \
+            > "$RUNNER_TEMP/items.json" 2>/dev/null || echo '{"Data":[]}' > "$RUNNER_TEMP/items.json"
+
+          UNWRAP='if type == "array" then . else (.Data // []) end'
+          CAND="$RUNNER_TEMP/candidates.tsv"
+          : > "$CAND"
+
+          jq -r "$UNWRAP"' | sort_by(.EndTime) | .[]? | select((.Key // "") != "")
+                | [.EndTime, .Key, "faulted-job", "", ""] | @tsv' \
+             "$RUNNER_TEMP/faulted.json" >> "$CAND" 2>/dev/null || true
+
+          jq -r --arg since "$SINCE" "$UNWRAP"' | map(select((.EndProcessing // "") >= $since and (.ExecutorJobKey // "") != ""))
+                | sort_by(.EndProcessing) | .[]?
+                | [.EndProcessing, .ExecutorJobKey, "failed-transaction", (.Reference // ""), (.ProcessingExceptionType // "")] | @tsv' \
+             "$RUNNER_TEMP/items.json" >> "$CAND" 2>/dev/null || true
+
+          echo "Candidates from job + queue-item scans: $(wc -l < "$CAND")"
+
+          while IFS=$'\t' read -r TS KEY DET REF EXC; do
+            [ -n "${KEY:-}" ] || continue
             untriaged "$KEY" || continue
-            echo "job_key=$KEY" >> "$GITHUB_OUTPUT"
-            echo "::notice::Picked up faulted job $KEY"
+            claim "$TS" "$KEY" "$DET" "$REF" "$EXC"
             exit 0
-          done
+          done < <(sort -k1,1 "$CAND")
 
-          # Only reached for jobs not already filed, so the log lookup stays cheap.
-          for KEY in $(jq -r "$JQ" "$RUNNER_TEMP/Successful.json" 2>/dev/null); do
+          # Fallback: a job-level failure leaves no queue item, so only its log shows it.
+          uip or jobs list --folder-path "$FOLDER" --state Successful --ended-after "$SINCE" \
+            --limit 20 --output json --output-filter '[].{Key:Key,EndTime:EndTime}' \
+            > "$RUNNER_TEMP/ok.json" 2>/dev/null || echo '{"Data":[]}' > "$RUNNER_TEMP/ok.json"
+
+          for KEY in $(jq -r "$UNWRAP"' | sort_by(.EndTime) | .[]?.Key // empty' "$RUNNER_TEMP/ok.json" 2>/dev/null); do
             untriaged "$KEY" || continue
             uip or jobs logs "$KEY" --level Fatal --limit 1 --output json \
               --output-filter '[].{Level:Level}' 2>/dev/null | grep -q '"Level"' || continue
-            echo "job_key=$KEY" >> "$GITHUB_OUTPUT"
-            echo "::notice::Picked up job $KEY -- reported Successful but logged Fatal"
+            claim "" "$KEY" "job-fatal-log" "" ""
             exit 0
           done
 
@@ -186,15 +219,24 @@ jobs:
         env:
           ARG_JOB_KEY: ${{ steps.args.outputs.job_key }}
           POLL_JOB_KEY: ${{ steps.poll.outputs.job_key }}
-          IS_SCHEDULE: ${{ github.event_name == 'schedule' }}
+          POLL_DETECTION: ${{ steps.poll.outputs.detection }}
+          ITEM_REF: ${{ steps.poll.outputs.item_ref }}
+          EXC_TYPE: ${{ steps.poll.outputs.exception_type }}
+          EVENT_NAME: ${{ github.event_name }}
+          FOLDER: ${{ steps.args.outputs.folder_path }}
         run: |
           set -euo pipefail
           JOB_KEY="${ARG_JOB_KEY:-$POLL_JOB_KEY}"
 
           if [ -z "$JOB_KEY" ]; then
-            if [ "$IS_SCHEDULE" = "true" ]; then
+            if [ "$EVENT_NAME" = "schedule" ]; then
               echo "found=false" >> "$GITHUB_OUTPUT"
               echo "Nothing to triage."
+              {
+                echo "### Job Failure Triage"
+                echo
+                echo "Polled \`$FOLDER\` — no untriaged failure in the last 24h."
+              } >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             echo "::error::No job_key supplied."
@@ -206,15 +248,49 @@ jobs:
             exit 1
           fi
 
+          case "$EVENT_NAME" in
+            schedule)            DETECTION="poll:${POLL_DETECTION:-unknown}" ;;
+            repository_dispatch) DETECTION="external-dispatch" ;;
+            *)                   DETECTION="manual-dispatch" ;;
+          esac
+
+          # failed-transaction is the only path that knows a queue item, so the shape of
+          # the failure is legible from the detection value alone.
+          case "$DETECTION" in
+            poll:failed-transaction) SCOPE="transaction" ;;
+            poll:faulted-job|poll:job-fatal-log) SCOPE="job" ;;
+            *) SCOPE="unknown" ;;
+          esac
+
           {
             echo "found=true"
             echo "job_key=$JOB_KEY"
             echo "short_key=${JOB_KEY%%-*}"
+            echo "detection=$DETECTION"
+            echo "scope=$SCOPE"
+            echo "item_ref=$ITEM_REF"
+            echo "exception_type=$EXC_TYPE"
           } >> "$GITHUB_OUTPUT"
-          echo "Triaging job $JOB_KEY"
+
+          echo "::notice::Triaging job $JOB_KEY (detected via $DETECTION, scope $SCOPE)"
+          {
+            echo "### Job Failure Triage"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Detected via | \`$DETECTION\` |"
+            echo "| Failure scope | $SCOPE |"
+            echo "| Job | \`$JOB_KEY\` |"
+            echo "| Folder | \`$FOLDER\` |"
+            [ -n "$ITEM_REF" ] && echo "| Queue item | \`$ITEM_REF\` |"
+            [ -n "$EXC_TYPE" ] && echo "| Exception type | $EXC_TYPE |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
 
   investigate:
-    name: Investigate failure
+    # Detection path in the job name, so the Actions run list shows which signal fired
+    # without anyone opening a log.
+    name: Investigate ${{ needs.resolve.outputs.scope }} failure (${{ needs.resolve.outputs.detection }})
     needs: resolve
     if: needs.resolve.outputs.found == 'true'
     runs-on: ubuntu-latest
@@ -324,6 +400,10 @@ jobs:
             REPO: ${{ github.repository }}
             JOB KEY: ${{ needs.resolve.outputs.job_key }}
             ORCHESTRATOR FOLDER: ${{ needs.resolve.outputs.folder_path }}
+            DETECTED VIA: ${{ needs.resolve.outputs.detection }}
+            FAILURE SCOPE: ${{ needs.resolve.outputs.scope }}
+            FAILED QUEUE ITEM: ${{ needs.resolve.outputs.item_ref }}
+            EXCEPTION TYPE: ${{ needs.resolve.outputs.exception_type }}
             DEPLOYED PROCESS VERSION: ${{ steps.preflight.outputs.run_version }}
             THIS CHECKOUT (project.json): ${{ steps.preflight.outputs.repo_version }}
 
@@ -332,9 +412,22 @@ jobs:
             the fix.
 
             The job may report state Successful and still be a failure: this project
-            sets ShouldMarkJobAsFaulted=False, so a blown transaction leaves the job
-            green with a Fatal entry in its logs. Do not treat "State: Successful" as
-            proof nothing went wrong; read the logs.
+            sets ShouldMarkJobAsFaulted=False. Do not treat "State: Successful" as
+            proof nothing went wrong.
+
+            FAILURE SCOPE tells you where to look, and the two are genuinely
+            different failures:
+            - transaction — one queue item blew up inside Process.xaml while the job
+              itself completed. REFramework logs these at Error, not Fatal, and marks
+              the item Failed. Start from the queue item named above (its
+              ProcessingException carries the message and the faulting activity), then
+              correlate to the job logs. An ApplicationException here usually means a
+              defect in a C-step; a BusinessException usually means the data or a
+              business rule, not the code.
+            - job — the run failed before or outside any transaction, so no queue item
+              exists to inspect. The job logs are the whole story.
+            If the scope is unknown (someone dispatched this by hand), work out which
+            it is from the evidence before concluding.
 
             If the two version lines above differ, the robot ran code that is NOT what
             is checked out here. Say so in the report, and treat any conclusion drawn
@@ -476,7 +569,14 @@ jobs:
 
           {
             printf '%s\n\n' "$NOTE"
-            printf 'Orchestrator job `%s` in folder `%s`.\n\n' "$JOB_KEY" "${{ needs.resolve.outputs.folder_path }}"
+            printf '| | |\n|---|---|\n'
+            printf '| Job | `%s` |\n' "$JOB_KEY"
+            printf '| Folder | `%s` |\n' "${{ needs.resolve.outputs.folder_path }}"
+            printf '| Detected via | `%s` |\n' "${{ needs.resolve.outputs.detection }}"
+            printf '| Failure scope | %s |\n' "${{ needs.resolve.outputs.scope }}"
+            [ -n "${{ needs.resolve.outputs.item_ref }}" ] && printf '| Failed queue item | `%s` |\n' "${{ needs.resolve.outputs.item_ref }}"
+            [ -n "${{ needs.resolve.outputs.exception_type }}" ] && printf '| Exception type | %s |\n' "${{ needs.resolve.outputs.exception_type }}"
+            printf '\n'
             cat job-failure-analysis.md
           } > "$RUNNER_TEMP/issue.md"
 
