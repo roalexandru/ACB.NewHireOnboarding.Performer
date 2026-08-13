@@ -39,46 +39,77 @@ permissions:
   issues: write
 
 jobs:
-  apply:
-    name: Apply fix and open PR
+  # Split from `apply` so that declining is not the same event as breaking.
+  #
+  # A wrong label is a correct decision, not an error: it exits 0 and `apply` is
+  # skipped, which the Actions UI renders as skipped rather than red. Red is reserved
+  # for a genuinely malformed request — an issue that cannot be read, has no job key
+  # in its title, or has no body — because those mean the caller got it wrong and
+  # nobody should have to open a log to tell the two apart.
+  gate:
+    name: Check the triage issue
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    outputs:
+      proceed: ${{ steps.issue.outputs.proceed }}
+      short: ${{ steps.issue.outputs.short }}
+      branch: ${{ steps.issue.outputs.branch }}
     env:
-      UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
-      UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
-      GH_TOKEN: ${{ secrets.PR_AUTHOR_PAT || github.token }}
+      GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       ISSUE: ${{ inputs.issue }}
+      FORCE: ${{ inputs.force }}
     steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      # Refuses anything not marked as a code fix, so a config or external finding
-      # cannot put an agent near the source just because someone typed its number.
       - name: Read the triage issue
         id: issue
-        env:
-          FORCE: ${{ inputs.force }}
         run: |
           set -euo pipefail
           if ! gh issue view "$ISSUE" --repo "$GH_REPO" \
                  --json number,title,state,labels,body > "$RUNNER_TEMP/issue.json" 2>"$RUNNER_TEMP/issue.err"; then
-            echo "::error::Cannot read issue #$ISSUE."
+            echo "::error::Cannot read issue #$ISSUE. Check the number exists in $GH_REPO."
             cat "$RUNNER_TEMP/issue.err" || true
             exit 1
           fi
 
           TITLE=$(jq -r '.title' "$RUNNER_TEMP/issue.json")
           STATE=$(jq -r '.state' "$RUNNER_TEMP/issue.json")
+          LABELS=$(jq -r '[.labels[].name] | join(", ")' "$RUNNER_TEMP/issue.json")
           HAS_LABEL=$(jq -r '[.labels[].name] | index("triage:code-fix") // "" | tostring' "$RUNNER_TEMP/issue.json")
           echo "Issue #$ISSUE [$STATE]: $TITLE"
 
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          decline() {  # $1 = reason, one sentence
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Declined issue #$ISSUE — $1 Nothing ran."
+            {
+              echo "### Declined"
+              echo
+              echo "Issue #$ISSUE: $1"
+              echo
+              echo "This is the gate working, not a failure — no agent was run and no branch was created."
+            } >> "$GITHUB_STEP_SUMMARY"
+            gh issue comment "$ISSUE" --repo "$GH_REPO" \
+              --body "Apply-fix was dispatched and **declined**: $1 No agent was run. ([run]($RUN_URL))" >/dev/null 2>&1 || true
+            exit 0
+          }
+
+          # Cheapest checks first, so the common "nothing to do here" cases cost one
+          # API call and no runner time beyond this job.
+          if [ "$STATE" = "CLOSED" ]; then
+            decline "the issue is already closed, so it has been handled."
+          fi
+
+          # Fix PRs are titled "fix(job <short>): ...", so an open one means a
+          # remediation is already in flight and a second agent would duplicate it.
+          SHORT_PRE=$(printf '%s' "$TITLE" | grep -oE '\b[0-9a-f]{8}\b' | head -1 || true)
+          if [ -n "$SHORT_PRE" ]; then
+            OPEN_PR=$(gh pr list --repo "$GH_REPO" --state open --search "$SHORT_PRE in:title" --limit 1 --json number --jq '.[0].number // ""' 2>/dev/null || echo "")
+            if [ -n "$OPEN_PR" ]; then
+              decline "PR #$OPEN_PR is already open for job $SHORT_PRE."
+            fi
+          fi
+
           if [ -z "$HAS_LABEL" ] && [ "$FORCE" != "true" ]; then
-            echo "::error::Issue #$ISSUE is not labelled triage:code-fix. Its root cause is not a source change. Re-run with force=true only if you are sure."
-            exit 1
+            decline "it is labelled \`${LABELS:-none}\`, not \`triage:code-fix\`, so its root cause is not a source change. Re-run with force=true only if you are certain a code change applies."
           fi
 
           # The title is "job <short>: ...", and <short> is the job key's first field.
@@ -88,20 +119,57 @@ jobs:
             exit 1
           fi
 
-          jq -r '.body' "$RUNNER_TEMP/issue.json" > job-failure-analysis.md
-          if [ ! -s job-failure-analysis.md ]; then
+          if [ -z "$(jq -r '.body // ""' "$RUNNER_TEMP/issue.json" | tr -d '[:space:]')" ]; then
             echo "::error::Issue #$ISSUE has an empty body; nothing to work from."
             exit 1
           fi
-          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
-          echo "branch=fix/job-$SHORT-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+          if [ -z "$HAS_LABEL" ]; then
+            echo "::warning::Proceeding on force=true — issue #$ISSUE is labelled '${LABELS:-none}', not triage:code-fix. An agent will edit source for a failure not diagnosed as a code defect."
+          fi
+
+          {
+            echo "proceed=true"
+            echo "short=$SHORT"
+            echo "branch=fix/job-$SHORT-${{ github.run_number }}"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::Accepted issue #$ISSUE for job $SHORT."
+
+  apply:
+    name: Apply fix and open PR
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      UIPATH_CLIENT_ID: ${{ secrets.UIPATH_CLIENT_ID }}
+      UIPATH_CLIENT_SECRET: ${{ secrets.UIPATH_CLIENT_SECRET }}
+      GH_TOKEN: ${{ secrets.PR_AUTHOR_PAT || github.token }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE: ${{ inputs.issue }}
+      BRANCH: ${{ needs.gate.outputs.branch }}
+      SHORT: ${{ needs.gate.outputs.short }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # Re-fetched rather than passed as an artifact: one API call is cheaper than
+      # artifact plumbing, and the gate has already validated it is non-empty.
+      - name: Fetch the diagnosis
+        run: |
+          set -euo pipefail
+          gh issue view "$ISSUE" --repo "$GH_REPO" --json body --jq '.body' > job-failure-analysis.md
+          test -s job-failure-analysis.md
 
       - name: Create branch
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "${{ steps.issue.outputs.branch }}"
+          git checkout -b "$BRANCH"
 
       - name: Set up .NET 8
         uses: actions/setup-dotnet@v4
@@ -142,7 +210,7 @@ jobs:
           github_token: ${{ github.token }}
           prompt: |
             REPO: ${{ github.repository }}
-            BRANCH: ${{ steps.issue.outputs.branch }}
+            BRANCH: ${{ needs.gate.outputs.branch }}
             ANALYSIS: job-failure-analysis.md (the body of triage issue #${{ inputs.issue }})
 
             An Orchestrator job failure has already been investigated and the diagnosis
@@ -214,8 +282,6 @@ jobs:
       - name: Open a PR, or report back on the issue
         run: |
           set -euo pipefail
-          BRANCH="${{ steps.issue.outputs.branch }}"
-          SHORT="${{ steps.issue.outputs.short }}"
 
           if git diff --quiet main..HEAD; then
             echo "::warning::The agent committed no source change; leaving issue #$ISSUE open."
