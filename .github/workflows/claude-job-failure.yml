@@ -182,9 +182,16 @@ jobs:
                 | [.EndTime, .Key, "faulted-job", "", ""] | @tsv' \
              "$RUNNER_TEMP/faulted.json" >> "$CAND" 2>/dev/null || true
 
+          # Reference and ProcessingExceptionType are upstream data, so they are
+          # stripped to a display-safe charset here, at the point they enter the
+          # pipeline. That closes shell injection and $GITHUB_OUTPUT line injection at
+          # the source rather than at each of the places they are later printed. Real
+          # values ("E7856-2026", "ApplicationException") pass through untouched.
           jq -r --arg since "$SINCE" "$UNWRAP"' | map(select((.EndProcessing // "") >= $since and (.ExecutorJobKey // "") != ""))
                 | sort_by(.EndProcessing) | .[]?
-                | [.EndProcessing, .ExecutorJobKey, "failed-transaction", (.Reference // ""), (.ProcessingExceptionType // "")] | @tsv' \
+                | [.EndProcessing, .ExecutorJobKey, "failed-transaction",
+                   ((.Reference // "") | gsub("[^A-Za-z0-9 ._-]"; "") | .[0:60]),
+                   ((.ProcessingExceptionType // "") | gsub("[^A-Za-z0-9 ._-]"; "") | .[0:40])] | @tsv' \
              "$RUNNER_TEMP/items.json" >> "$CAND" 2>/dev/null || true
 
           echo "Candidates from job + queue-item scans: $(wc -l < "$CAND")"
@@ -543,6 +550,14 @@ jobs:
           VERDICT: ${{ steps.verdict.outputs.verdict }}
           SHORT: ${{ needs.resolve.outputs.short_key }}
           JOB_KEY: ${{ needs.resolve.outputs.job_key }}
+          # Via env, never spliced into the script body. ITEM_REF and EXC_TYPE come
+          # from a queue item's Reference/ProcessingExceptionType — upstream data this
+          # workflow does not control — and this step holds a write-scoped GH_TOKEN.
+          FOLDER: ${{ needs.resolve.outputs.folder_path }}
+          DETECTION: ${{ needs.resolve.outputs.detection }}
+          SCOPE: ${{ needs.resolve.outputs.scope }}
+          ITEM_REF: ${{ needs.resolve.outputs.item_ref }}
+          EXC_TYPE: ${{ needs.resolve.outputs.exception_type }}
         run: |
           set -euo pipefail
           case "$VERDICT" in
@@ -571,11 +586,11 @@ jobs:
             printf '%s\n\n' "$NOTE"
             printf '| | |\n|---|---|\n'
             printf '| Job | `%s` |\n' "$JOB_KEY"
-            printf '| Folder | `%s` |\n' "${{ needs.resolve.outputs.folder_path }}"
-            printf '| Detected via | `%s` |\n' "${{ needs.resolve.outputs.detection }}"
-            printf '| Failure scope | %s |\n' "${{ needs.resolve.outputs.scope }}"
-            [ -n "${{ needs.resolve.outputs.item_ref }}" ] && printf '| Failed queue item | `%s` |\n' "${{ needs.resolve.outputs.item_ref }}"
-            [ -n "${{ needs.resolve.outputs.exception_type }}" ] && printf '| Exception type | %s |\n' "${{ needs.resolve.outputs.exception_type }}"
+            printf '| Folder | `%s` |\n' "$FOLDER"
+            printf '| Detected via | `%s` |\n' "$DETECTION"
+            printf '| Failure scope | %s |\n' "$SCOPE"
+            [ -n "$ITEM_REF" ] && printf '| Failed queue item | `%s` |\n' "$ITEM_REF"
+            [ -n "$EXC_TYPE" ] && printf '| Exception type | %s |\n' "$EXC_TYPE"
             printf '\n'
             cat job-failure-analysis.md
           } > "$RUNNER_TEMP/issue.md"
