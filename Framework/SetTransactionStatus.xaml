@@ -254,8 +254,8 @@
                   <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionStatus">Success</InArgument>
                   <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionNumber">[io_TransactionNumber.ToString]</InArgument>
                   <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionID">[in_TransactionID]</InArgument>
-                  <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField1">[in_TransactionField1]</InArgument>
-                  <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField2">[in_TransactionField2]</InArgument>
+                  <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField1">[If(in_Config.ContainsKey("Txn.EmployeeId"), CStr(in_Config("Txn.EmployeeId")), in_TransactionField1)]</InArgument>
+                  <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField2">[If(in_Config.ContainsKey("Txn.TransactionId"), CStr(in_Config("Txn.TransactionId")), in_TransactionField2)]</InArgument>
                 </ui:AddLogFields.Fields>
               </ui:AddLogFields>
               <ui:LogMessage DisplayName="Log Message (Success)" sap:VirtualizedContainerService.HintSize="416,174.4" sap2010:WorkflowViewState.IdRef="LogMessage_7" Level="Info" Message="[in_Config(&quot;LogMessage_Success&quot;).ToString]" />
@@ -435,8 +435,8 @@
                       <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionStatus">BusinessException</InArgument>
                       <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionNumber">[io_TransactionNumber.ToString]</InArgument>
                       <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionID">[in_TransactionID]</InArgument>
-                      <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField1">[in_TransactionField1]</InArgument>
-                      <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField2">[in_TransactionField2]</InArgument>
+                      <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField1">[If(in_Config.ContainsKey("Txn.EmployeeId"), CStr(in_Config("Txn.EmployeeId")), in_TransactionField1)]</InArgument>
+                      <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField2">[If(in_Config.ContainsKey("Txn.TransactionId"), CStr(in_Config("Txn.TransactionId")), in_TransactionField2)]</InArgument>
                     </ui:AddLogFields.Fields>
                   </ui:AddLogFields>
                   <ui:LogMessage DisplayName="Log Message (Business Exception)" sap:VirtualizedContainerService.HintSize="388,175.33333333333334" sap2010:WorkflowViewState.IdRef="LogMessage_8" Level="Error" Message="[in_Config(&quot;LogMessage_BusinessRuleException&quot;).ToString + in_BusinessException.Message]" />
@@ -588,8 +588,8 @@
                     <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionStatus">ApplicationException</InArgument>
                     <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionNumber">[io_TransactionNumber.ToString]</InArgument>
                     <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionID">[in_TransactionID]</InArgument>
-                    <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField1">[in_TransactionField1]</InArgument>
-                    <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField2">[in_TransactionField2]</InArgument>
+                    <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField1">[If(in_Config.ContainsKey("Txn.EmployeeId"), CStr(in_Config("Txn.EmployeeId")), in_TransactionField1)]</InArgument>
+                    <InArgument x:TypeArguments="x:String" x:Key="logF_TransactionField2">[If(in_Config.ContainsKey("Txn.TransactionId"), CStr(in_Config("Txn.TransactionId")), in_TransactionField2)]</InArgument>
                   </ui:AddLogFields.Fields>
                 </ui:AddLogFields>
                 <Assign DisplayName="Increment consecutive exceptions counter" sap:VirtualizedContainerService.HintSize="512,113.6" sap2010:WorkflowViewState.IdRef="Assign_12">
