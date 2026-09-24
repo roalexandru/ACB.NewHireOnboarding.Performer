@@ -171,8 +171,8 @@ business pipeline lives outside the stock files:
 | `Framework/InitAllSettings.xaml` | Stock REF — reads Config.xlsx into `in_Config`. |
 | `Framework/InitAllApplications.xaml` | Stock REF — empty in v1 (asset load lives in `InitWorkflow.xaml`). |
 | `Framework/GetTransactionData.xaml` | Stock REF — `GetTransactionItem` against the queue. **Do not modify.** |
-| `Framework/Process.xaml` | Bespoke — extracts `SpecificContent.*` from the queue item, calls `InitWorkflow`, dispatches to C-03 → C-11. On `outcomeCode = BUSINESS_EXCEPTION` throws `UiPath.Core.BusinessRuleException` so REF routes the item to `BusinessException`. Other exceptions bubble to REF as system exceptions. |
-| `Framework/SetTransactionStatus.xaml` | Stock REF, **modified for Portable target**: the "Try taking screenshot" block and its `ScreenshotPath` variable were removed (TakeScreenshot is a Windows-only UIAutomation activity); the queue's `SetTransactionStatus.Details` no longer composes a screenshot path. Retry/exception semantics still belong in Config.xlsx (`MaxRetryNumber`, `MaxConsecutiveSystemExceptions`). |
+| `Framework/Process.xaml` | Bespoke — stages `SpecificContent.*` into the transaction context (`in_Config("Txn.*")`, see below) and reads the fields back from there, calls `InitWorkflow`, dispatches to C-03 → C-11. On `outcomeCode = BUSINESS_EXCEPTION` throws `UiPath.Core.BusinessRuleException` so REF routes the item to `BusinessException`. Other exceptions bubble to REF as system exceptions. |
+| `Framework/SetTransactionStatus.xaml` | Stock REF, **modified for Portable target**: the "Try taking screenshot" block and its `ScreenshotPath` variable were removed (TakeScreenshot is a Windows-only UIAutomation activity); the queue's `SetTransactionStatus.Details` no longer composes a screenshot path. The `logF_TransactionField1` / `logF_TransactionField2` log fields carry `Txn.EmployeeId` / `Txn.TransactionId` from the transaction context. Retry/exception semantics still belong in Config.xlsx (`MaxRetryNumber`, `MaxConsecutiveSystemExceptions`). |
 | `Framework/RetryCurrentTransaction.xaml`, `KillAllProcesses.xaml`, `CloseAllApplications.xaml` | Stock REF — leave alone. (`TakeScreenshot.xaml` was deleted during the Portable conversion.) |
 | `Framework/InitWorkflow.xaml` | Bespoke — loads the 4 Orchestrator assets (`ACB.BenefitConnect.BaseUrl`, `ACB.BenefitConnect.ApiKey`, `ACB.NewHireOnboarding.PostingOrder`, `ACB.NewHireOnboarding.IRSLimits.2026`). |
 | `Framework/HttpGet.xaml`, `HttpPost.xaml`, `HttpInvoke.xaml` | Bespoke — wrap legacy `HttpClient`, inject `X-API-Key` + `X-Employee-Id`, classify 401/403/5xx into `out_ErrorCode`. **All API calls go through these — don't drop a raw `HttpClient` into a Process step.** |
@@ -188,7 +188,7 @@ business pipeline lives outside the stock files:
 NewHireBenefitsPosting queue
   └── GetTransactionData → in_TransactionItem (QueueItem)
         └── Framework/Process.xaml
-              ├── extract SpecificContent.{TransactionId, EmployeeId, PlanYear, …}
+              ├── stage SpecificContent.* → in_Config("Txn.*"), read fields back
               ├── Framework/InitWorkflow.xaml (4 assets)
               ├── C-03 IdentityAssertion        → asserts EmployeeId
               ├── C-04 DependentPreCheck        → BR-03 tier check
@@ -200,6 +200,24 @@ NewHireBenefitsPosting queue
               ├── C-10 ConfirmToActive          → captures confirmationNumber
               └── C-11 LogOutcome + throw BusinessRuleException on business failure
 ```
+
+### Transaction context (`Txn.*` keys in Config)
+
+`Framework/Process.xaml` copies every `SpecificContent` field of the current queue item into
+`in_Config` under a `Txn.` prefix (`Txn.EmployeeId`, `Txn.TransactionId`, `Txn.PlanYear`, …)
+before anything else runs, then reads its working variables back from those keys. It exists
+because the framework files only receive `in_Config`: `GetTransactionData.xaml` is do-not-modify,
+so REF's `TransactionField1/2` stay empty, and this is the only way `SetTransactionStatus.xaml`
+can tag its Success / Business / System log lines with the employee.
+
+- **Required** (`TransactionId`, `EmployeeId`, `PlanYear`, `ElectionsJson`): read directly; a
+  missing key fails the transaction as before.
+- **Optional** (`DispatcherPollId`, `Username`, `HireDate`, `IntakeFormRef`): default to `""`
+  when absent, so an older Dispatcher that omits one no longer crashes the transaction.
+  `LogOutcome` prints `-` for an empty optional field.
+
+Read queue fields from `Txn.*`, not straight from `in_TransactionItem.SpecificContent`, so the log
+fields and the API calls always agree on which employee a transaction is for.
 
 ## Commands (relative paths from the project root)
 

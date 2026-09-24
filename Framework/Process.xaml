@@ -96,12 +96,32 @@
         </scg:Dictionary>
       </sap:WorkflowViewStateService.ViewState>
     </Assign>
+    <ForEach x:TypeArguments="scg:KeyValuePair(x:String, x:Object)" sap2010:Annotation.AnnotationText="Copies SpecificContent into in_Config under Txn.* so the framework files (SetTransactionStatus) can tag their log lines with the business keys. GetTransactionData is do-not-modify, so TransactionField1/2 would otherwise stay empty." DisplayName="Stage queue fields into transaction context" sap:VirtualizedContainerService.HintSize="692.8,236" sap2010:WorkflowViewState.IdRef="ForEach`1_1" Values="[in_TransactionItem.SpecificContent]">
+      <ActivityAction x:TypeArguments="scg:KeyValuePair(x:String, x:Object)">
+        <ActivityAction.Argument>
+          <DelegateInArgument x:TypeArguments="scg:KeyValuePair(x:String, x:Object)" Name="field" />
+        </ActivityAction.Argument>
+        <InvokeMethod DisplayName="Add field to context" sap:VirtualizedContainerService.HintSize="434,132" sap2010:WorkflowViewState.IdRef="InvokeMethod_1" MethodName="TryAdd">
+          <InvokeMethod.TargetObject>
+            <InArgument x:TypeArguments="scg:Dictionary(x:String, x:Object)">[in_Config]</InArgument>
+          </InvokeMethod.TargetObject>
+          <InArgument x:TypeArguments="x:String">["Txn." &amp; field.Key]</InArgument>
+          <InArgument x:TypeArguments="x:Object">[field.Value]</InArgument>
+        </InvokeMethod>
+      </ActivityAction>
+      <sap:WorkflowViewStateService.ViewState>
+        <scg:Dictionary x:TypeArguments="x:String, x:Object">
+          <x:Boolean x:Key="IsExpanded">False</x:Boolean>
+          <x:Boolean x:Key="IsAnnotationDocked">True</x:Boolean>
+        </scg:Dictionary>
+      </sap:WorkflowViewStateService.ViewState>
+    </ForEach>
     <Assign DisplayName="Extract TransactionId" sap:VirtualizedContainerService.HintSize="692.8,48" sap2010:WorkflowViewState.IdRef="Assign_2">
       <Assign.To>
         <OutArgument x:TypeArguments="x:String">[transactionId]</OutArgument>
       </Assign.To>
       <Assign.Value>
-        <InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent("TransactionId").ToString()]</InArgument>
+        <InArgument x:TypeArguments="x:String">[in_Config("Txn.TransactionId").ToString()]</InArgument>
       </Assign.Value>
       <sap:WorkflowViewStateService.ViewState>
         <scg:Dictionary x:TypeArguments="x:String, x:Object">
@@ -114,7 +134,7 @@
         <OutArgument x:TypeArguments="x:String">[dispatcherPollId]</OutArgument>
       </Assign.To>
       <Assign.Value>
-        <InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent("DispatcherPollId").ToString()]</InArgument>
+        <InArgument x:TypeArguments="x:String">[If(in_Config.ContainsKey("Txn.DispatcherPollId") AndAlso in_Config("Txn.DispatcherPollId") IsNot Nothing, in_Config("Txn.DispatcherPollId").ToString(), "")]</InArgument>
       </Assign.Value>
       <sap:WorkflowViewStateService.ViewState>
         <scg:Dictionary x:TypeArguments="x:String, x:Object">
@@ -127,7 +147,7 @@
         <OutArgument x:TypeArguments="x:String">[employeeId]</OutArgument>
       </Assign.To>
       <Assign.Value>
-        <InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent("EmployeeId").ToString()]</InArgument>
+        <InArgument x:TypeArguments="x:String">[in_Config("Txn.EmployeeId").ToString()]</InArgument>
       </Assign.Value>
       <sap:WorkflowViewStateService.ViewState>
         <scg:Dictionary x:TypeArguments="x:String, x:Object">
@@ -140,7 +160,7 @@
         <OutArgument x:TypeArguments="x:String">[username]</OutArgument>
       </Assign.To>
       <Assign.Value>
-        <InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent("Username").ToString()]</InArgument>
+        <InArgument x:TypeArguments="x:String">[If(in_Config.ContainsKey("Txn.Username") AndAlso in_Config("Txn.Username") IsNot Nothing, in_Config("Txn.Username").ToString(), "")]</InArgument>
       </Assign.Value>
       <sap:WorkflowViewStateService.ViewState>
         <scg:Dictionary x:TypeArguments="x:String, x:Object">
@@ -153,7 +173,7 @@
         <OutArgument x:TypeArguments="x:String">[hireDate]</OutArgument>
       </Assign.To>
       <Assign.Value>
-        <InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent("HireDate").ToString()]</InArgument>
+        <InArgument x:TypeArguments="x:String">[If(in_Config.ContainsKey("Txn.HireDate") AndAlso in_Config("Txn.HireDate") IsNot Nothing, in_Config("Txn.HireDate").ToString(), "")]</InArgument>
       </Assign.Value>
       <sap:WorkflowViewStateService.ViewState>
         <scg:Dictionary x:TypeArguments="x:String, x:Object">
@@ -166,7 +186,7 @@
         <OutArgument x:TypeArguments="x:Int32">[planYear]</OutArgument>
       </Assign.To>
       <Assign.Value>
-        <InArgument x:TypeArguments="x:Int32">[CInt(in_TransactionItem.SpecificContent("PlanYear"))]</InArgument>
+        <InArgument x:TypeArguments="x:Int32">[CInt(in_Config("Txn.PlanYear"))]</InArgument>
       </Assign.Value>
       <sap:WorkflowViewStateService.ViewState>
         <scg:Dictionary x:TypeArguments="x:String, x:Object">
@@ -179,7 +199,7 @@
         <OutArgument x:TypeArguments="x:String">[intakeFormRef]</OutArgument>
       </Assign.To>
       <Assign.Value>
-        <InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent("IntakeFormRef").ToString()]</InArgument>
+        <InArgument x:TypeArguments="x:String">[If(in_Config.ContainsKey("Txn.IntakeFormRef") AndAlso in_Config("Txn.IntakeFormRef") IsNot Nothing, in_Config("Txn.IntakeFormRef").ToString(), "")]</InArgument>
       </Assign.Value>
       <sap:WorkflowViewStateService.ViewState>
         <scg:Dictionary x:TypeArguments="x:String, x:Object">
@@ -192,7 +212,7 @@
         <OutArgument x:TypeArguments="x:String">[electionsJson]</OutArgument>
       </Assign.To>
       <Assign.Value>
-        <InArgument x:TypeArguments="x:String">[in_TransactionItem.SpecificContent("ElectionsJson").ToString()]</InArgument>
+        <InArgument x:TypeArguments="x:String">[in_Config("Txn.ElectionsJson").ToString()]</InArgument>
       </Assign.Value>
       <sap:WorkflowViewStateService.ViewState>
         <scg:Dictionary x:TypeArguments="x:String, x:Object">
