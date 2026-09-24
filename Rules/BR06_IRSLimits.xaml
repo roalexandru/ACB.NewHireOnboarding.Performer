@@ -92,7 +92,7 @@
               </scg:Dictionary>
             </sap:WorkflowViewStateService.ViewState>
           </Assign>
-          <If Condition="[in_Amount &lt;= ceiling]" DisplayName="Within ceiling?" sap:VirtualizedContainerService.HintSize="480,360" sap2010:WorkflowViewState.IdRef="If_1">
+          <If Condition="[in_Amount &lt; ceiling]" DisplayName="Within ceiling?" sap:VirtualizedContainerService.HintSize="480,360" sap2010:WorkflowViewState.IdRef="If_1">
             <If.Then>
               <Sequence DisplayName="Then" sap:VirtualizedContainerService.HintSize="480,96" sap2010:WorkflowViewState.IdRef="Sequence_1">
                 <sap:WorkflowViewStateService.ViewState>
@@ -153,7 +153,7 @@
                     <OutArgument x:TypeArguments="x:String">[out_Detail]</OutArgument>
                   </Assign.To>
                   <Assign.Value>
-                    <InArgument x:TypeArguments="x:String">[in_PlanType &amp; " amount " &amp; in_Amount.ToString() &amp; " exceeds 2026 IRS ceiling " &amp; ceiling.ToString()]</InArgument>
+                    <InArgument x:TypeArguments="x:String">[in_PlanType &amp; " amount " &amp; in_Amount.ToString("N2") &amp; " exceeds IRS ceiling " &amp; ceiling.ToString("N2") &amp; " (limit key " &amp; key &amp; ")"]</InArgument>
                   </Assign.Value>
                   <sap:WorkflowViewStateService.ViewState>
                     <scg:Dictionary x:TypeArguments="x:String, x:Object">
