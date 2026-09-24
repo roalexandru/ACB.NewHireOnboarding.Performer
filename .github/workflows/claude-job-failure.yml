@@ -1,4 +1,4 @@
-name: Claude Job Failure Triage
+name: Claude Failure Triage
 
 # Investigates a failed Orchestrator job with the `uipath-troubleshoot` skill and
 # files an issue with the diagnosis. It never touches source — remediation lives in
@@ -12,6 +12,14 @@ name: Claude Job Failure Triage
 # Every verdict files an issue, including CODE_FIX. The issue tracks the failure; a
 # PR is only ever one proposed remedy, and closing it unmerged must not erase the
 # record that the job failed.
+#
+# On demand only; nothing runs on a timer. Start it from the Actions tab ("Run
+# workflow"), from the CLI:
+#   gh workflow run claude-job-failure.yml -f job_key=<guid>
+#   gh workflow run claude-job-failure.yml -f poll=true
+# or from the REST API (inputs are strings there, booleans included):
+#   gh api repos/{owner}/{repo}/actions/workflows/claude-job-failure.yml/dispatches \
+#     -f ref=main -f 'inputs[job_key]=<guid>' -f 'inputs[folder_path]=CodingAgentsDemos'
 
 on:
   workflow_dispatch:
@@ -42,18 +50,14 @@ on:
   repository_dispatch:
     types: [job-failure]
 
-  # Poll path. Needs no Orchestrator-side wiring at all: it asks Orchestrator for
-  # failed jobs and triages the oldest one it has not already filed. Claims one per
-  # run, so a backlog drains one tick at a time. `poll: true` above runs the same
-  # discovery on demand — which is also the only way to exercise this path without
-  # waiting for a tick.
-  schedule:
-    - cron: '*/30 * * * *'
+  # Poll path: `poll: true` above. Needs no Orchestrator-side wiring at all: it asks
+  # Orchestrator for failed jobs and triages the oldest one it has not already filed.
+  # Claims one per run, so a backlog drains one run at a time.
 
-# Scheduled runs all share one slot so a poll cannot pick up a job the previous poll
-# is still triaging — its dedupe branch does not exist yet at that point.
+# Poll runs all share one slot so a poll cannot pick up a job the previous poll is
+# still triaging — its dedupe branch does not exist yet at that point.
 concurrency:
-  group: job-triage-${{ github.event.inputs.job_key || github.event.client_payload.job_key || 'scheduled' }}
+  group: job-triage-${{ github.event.inputs.job_key || github.event.client_payload.job_key || 'poll' }}
   cancel-in-progress: false
 
 permissions:
@@ -102,7 +106,6 @@ jobs:
           POLLING=false
           case "$EVENT_NAME" in
             repository_dispatch) JOB_KEY="$RD_JOB_KEY"; FOLDER="$RD_FOLDER" ;;
-            schedule)            JOB_KEY=""; FOLDER=""; POLLING=true ;;
             *)                   JOB_KEY="$WD_JOB_KEY"; FOLDER="$WD_FOLDER"
                                  if [ "$WD_POLL" = "true" ]; then JOB_KEY=""; POLLING=true; fi ;;
           esac
@@ -252,7 +255,7 @@ jobs:
               echo "found=false" >> "$GITHUB_OUTPUT"
               echo "Nothing to triage."
               {
-                echo "### Job Failure Triage"
+                echo "### Claude Failure Triage"
                 echo
                 echo "Polled \`$FOLDER\` — no untriaged failure in the last 24h."
               } >> "$GITHUB_STEP_SUMMARY"
@@ -298,7 +301,7 @@ jobs:
 
           echo "::notice::Triaging job $JOB_KEY (detected via $DETECTION, scope $SCOPE)"
           {
-            echo "### Job Failure Triage"
+            echo "### Claude Failure Triage"
             echo
             echo "| | |"
             echo "|---|---|"
