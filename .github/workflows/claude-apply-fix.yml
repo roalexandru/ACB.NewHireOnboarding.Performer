@@ -1,6 +1,6 @@
 name: Claude Apply Fix
 
-# Attempts the source fix for a triage issue filed by Claude Job Failure Triage, and
+# Attempts the source fix for a triage issue filed by Claude Failure Triage, and
 # opens a PR if it produces one.
 #
 # The issue IS the contract between the two workflows. This one reads the diagnosis
